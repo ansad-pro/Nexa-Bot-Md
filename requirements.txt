@@ -4,3 +4,4 @@ pymongo
 uvicorn
 fastapi
 python-dotenv
+cryptography
