@@ -54,7 +54,7 @@ class AutoFilterBot(Client):
             api_hash=API_HASH,
             bot_token=BOT_TOKEN,
             plugins=dict(root="plugins"),
-            sleep=1,
+            # sleep=1, <--- ERROR IS HERE: Removed the 'sleep' argument as it is deprecated in Pyrogram 2.0+
         )
 
 # --- Bot Instance ---
