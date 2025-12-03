@@ -6,24 +6,44 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import UserNotParticipant
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from typing import List, Dict, Any
 
 # .env ഫയലിൽ നിന്ന് വേരിയബിളുകൾ ലോഡ് ചെയ്യുന്നു (ലോക്കൽ ടെസ്റ്റിങ്ങിന്)
 load_dotenv()
 
 # --- Config Variables ---
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-PRIVATE_FILE_STORE = int(os.environ.get("PRIVATE_FILE_STORE"))
-ADMINS = [int(admin.strip()) for admin in os.environ.get("ADMINS").split(',')]
-DATABASE_URL = os.environ.get("DATABASE_URL")
-FORCE_SUB_CHANNEL = os.environ.get("FORCE_SUB_CHANNEL") # @Mala_Tv യിൽ നിന്ന് Mala_Tv മാത്രം മതി
-LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL"))
+# env വേരിയബിളുകൾ ഇല്ലെങ്കിൽ default വാല്യൂ നൽകുന്നു
+API_ID = int(os.environ.get("API_ID", 12345))
+API_HASH = os.environ.get("API_HASH", "YOUR_API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
+PRIVATE_FILE_STORE = int(os.environ.get("PRIVATE_FILE_STORE", -100))
+ADMINS = [int(admin.strip()) for admin in os.environ.get("ADMINS", "").split(',') if admin.strip().isdigit()]
+DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb://localhost:27017")
+FORCE_SUB_CHANNEL = os.environ.get("FORCE_SUB_CHANNEL", None)
+LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", -100))
 
-# --- MongoDB Setup ---
-DB_CLIENT = AsyncIOMotorClient(DATABASE_URL)
-DB = DB_CLIENT["AutoFilterBot"]
-FILES_COLLECTION = DB["files"]
+# Webhook Details
+WEBHOOK_URL_BASE = os.environ.get("WEBHOOK_URL_BASE", None)
+PORT = int(os.environ.get("PORT", 8080))
+WEBHOOK_PATH = f"/{BOT_TOKEN}"
+
+# --- MongoDB Setup (Updated to use a Database Class) ---
+
+class Database:
+    """ഡാറ്റാബേസ് പ്രവർത്തനങ്ങൾ കൈകാര്യം ചെയ്യുന്നു."""
+    def __init__(self, uri: str, database_name: str):
+        self._client = AsyncIOMotorClient(uri)
+        self.db = self._client[database_name]
+        self.files_col = self.db["files"] # ഫയൽ വിവരങ്ങൾ സൂക്ഷിക്കുന്ന Collection
+
+    async def get_all_files(self) -> List[Dict[str, Any]]:
+        """ഡാറ്റാബേസിലെ എല്ലാ ഫയൽ എൻട്രികളും ലിസ്റ്റ് ആയി തിരികെ നൽകുന്നു."""
+        # Motor-ൽ നിന്നും Cursor-നെ ലിസ്റ്റ് ആയി മാറ്റാൻ to_list() ഉപയോഗിക്കുന്നു.
+        cursor = self.files_col.find({})
+        return await cursor.to_list(length=None)
+
+# ഡാറ്റാബേസ് ഇൻസ്റ്റൻസ്
+db = Database(DATABASE_URL, "AutoFilterBot")
 
 # --- Pyrogram Client ---
 class AutoFilterBot(Client):
@@ -47,7 +67,6 @@ async def is_subscribed(client, user_id):
     if not FORCE_SUB_CHANNEL:
         return True
     try:
-        # get_chat_member ഉപയോഗിച്ച് യൂസർ സ്റ്റാറ്റസ് പരിശോധിക്കുന്നു
         member = await client.get_chat_member(FORCE_SUB_CHANNEL, user_id)
         if member.status in ["member", "administrator", "creator"]:
             return True
@@ -56,18 +75,16 @@ async def is_subscribed(client, user_id):
         return False
     except Exception as e:
         print(f"Error checking subscription: {e}")
-        return True # എറർ വന്നാൽ സബ്സ്ക്രൈബ്ഡ് ആയി കണക്കാക്കുന്നു
+        return True
 
 async def get_file_details(query):
     """ഡാറ്റാബേസിൽ നിന്ന് ഫയൽ വിവരങ്ങൾ തിരയുന്നു."""
-    # കേസ് ഇൻസെൻസിറ്റീവ് ആയി തിരയാൻ $regex ഉപയോഗിക്കുന്നു
-    # ടൈറ്റിലിലോ കാപ്ഷനിലോ കീവേഡ് ഉണ്ടോ എന്ന് നോക്കുന്നു
-    cursor = FILES_COLLECTION.find({
+    cursor = db.files_col.find({ # db.files_col ഉപയോഗിച്ചു
         "$or": [
             {"title": {"$regex": query, "$options": "i"}},
             {"caption": {"$regex": query, "$options": "i"}}
         ]
-    }).limit(10) # ആദ്യത്തെ 10 ഫലങ്ങൾ മാത്രം
+    }).limit(10)
     
     files = await cursor.to_list(length=10)
     return files
@@ -83,36 +100,38 @@ async def start_command(client, message: Message):
 @app.on_message(filters.command("index") & filters.user(ADMINS))
 async def index_command(client, message: Message):
     """അഡ്മിൻമാർക്ക് ഫയൽ സ്റ്റോർ ചാനലിലെ ഫയലുകൾ ഇൻഡക്സ് ചെയ്യാനുള്ള കമാൻഡ്."""
+    if not PRIVATE_FILE_STORE:
+        await message.reply_text("PRIVATE_FILE_STORE ID ENV വേരിയബിളിൽ നൽകിയിട്ടില്ല. ഇൻഡക്സിംഗ് സാധ്യമല്ല.")
+        return
+
     msg = await message.reply_text("ഫയലുകൾ ഇൻഡക്സ് ചെയ്യാൻ തുടങ്ങുന്നു...")
     
-    # നിങ്ങൾ നൽകിയ ചാനലിന്റെ ID യിൽ നിന്ന് മെസ്സേജുകൾ എടുക്കുന്നു
     total_files = 0
-    async for msg in client.search_messages(chat_id=PRIVATE_FILE_STORE, filter="document"):
-        if msg.document:
-            file_id = msg.document.file_id
-            file_ref = msg.document.file_ref
-            file_name = msg.document.file_name
-            caption = msg.caption.html if msg.caption else None
+    # msg.document ചെക്ക് ചെയ്യുന്നത് ആവശ്യമില്ല, filter="document" ഉള്ളതുകൊണ്ട്
+    async for chat_msg in client.search_messages(chat_id=PRIVATE_FILE_STORE, filter="document"):
+        if chat_msg.document:
+            file_id = chat_msg.document.file_id
+            file_name = chat_msg.document.file_name
+            caption = chat_msg.caption.html if chat_msg.caption else None
             
             # ഡാറ്റാബേസിൽ ഫയൽ വിവരങ്ങൾ ചേർക്കുന്നു
-            await FILES_COLLECTION.update_one(
+            await db.files_col.update_one( # db.files_col ഉപയോഗിച്ചു
                 {"file_id": file_id},
                 {
                     "$set": {
                         "title": file_name,
                         "caption": caption,
                         "file_id": file_id,
-                        "file_ref": file_ref,
                         "chat_id": PRIVATE_FILE_STORE,
-                        "message_id": msg.id,
+                        "message_id": chat_msg.id,
                     }
                 },
                 upsert=True
             )
             total_files += 1
             
-            # 100 ഫയലുകൾക്ക് ശേഷം അപ്ഡേറ്റ് മെസ്സേജ് അയക്കുന്നു
             if total_files % 100 == 0:
+                 # Original msg-യെ എഡിറ്റ് ചെയ്യുന്നു
                  await msg.edit_text(f"✅ ഇൻഡക്സ് ചെയ്ത ഫയലുകൾ: {total_files}")
                  
     await msg.edit_text(f"🎉 ഇൻഡക്സിംഗ് പൂർത്തിയായി! ആകെ {total_files} ഫയലുകൾ ചേർത്തു.")
@@ -124,17 +143,16 @@ async def auto_filter_handler(client, message: Message):
     query = message.text.strip()
     
     # 1. ഫോഴ്സ് സബ്സ്ക്രൈബ് ചെക്ക്
-    if message.chat.type != "private" or await is_subscribed(client, message.from_user.id):
+    is_private = message.chat.type == "private"
+    if not is_private or await is_subscribed(client, message.from_user.id):
         
-        # 2. കോപ്പിറൈറ്റ് മെസ്സേജ് ഡിലീറ്റ് ലോജിക് (അഡ്മിൻമാർക്ക് മാത്രം)
+        # 2. കോപ്പിറൈറ്റ് മെസ്സേജ് ഡിലീറ്റ് ലോജിക്
         COPYRIGHT_KEYWORDS = ["copyright", "unauthorized", "DMCA", "piracy", "പകർപ്പവകാശം", "അനുമതിയില്ലാതെ"] 
-        if any(keyword.lower() in query.lower() for keyword in COPYRIGHT_KEYWORDS):
+        if message.chat.id in ADMINS and any(keyword.lower() in query.lower() for keyword in COPYRIGHT_KEYWORDS):
              try:
-                 # മെസ്സേജ് ഡിലീറ്റ് ചെയ്യാൻ Bot-ന് delete_messages പെർമിഷൻ വേണം.
                  await message.delete()
-                 # ലോഗ് ചാനലിൽ ഒരു നോട്ടിഫിക്കേഷൻ അയക്കുന്നു
                  await client.send_message(LOG_CHANNEL, f"🚫 **കോപ്പിറൈറ്റ് സന്ദേശം നീക്കം ചെയ്തു!**\n\n**ചാറ്റ് ID:** `{message.chat.id}`\n**യൂസർ:** {message.from_user.mention}\n**സന്ദേശം:** `{query}`")
-                 return # ഡിലീറ്റ് ചെയ്താൽ ഫിൽട്ടർ കണ്ടിന്യൂ ചെയ്യേണ്ട
+                 return
              except Exception as e:
                  print(f"Error deleting message: {e}")
         
@@ -145,14 +163,11 @@ async def auto_filter_handler(client, message: Message):
             text = f"ഇതാ നിങ്ങൾ തിരഞ്ഞ **{query}**-യുമായി ബന്ധപ്പെട്ട ഫയലുകൾ:\n\n"
             buttons = []
             for file in files:
-                # ഫയൽ ടൈറ്റിലിൽ നിന്ന് ഫയലിന്റെ പേര് മാത്രം എടുക്കുന്നു
-                file_name = file.get("title", "File").split('.')[-2].strip() 
+                file_name = file.get("title", "File").rsplit('.', 1)[0].strip() # Extension ഒഴിവാക്കുന്നു
                 
-                # ഫയലിന്റെ പേരിലുള്ള ബട്ടൺ
                 buttons.append([
                     InlineKeyboardButton(
                         text=file_name,
-                        # ഫയൽ ഷെയർ ചെയ്യാൻ ഒരു കമാൻഡ് കോൾ ചെയ്യുന്നു
                         callback_data=f"getfile_{file.get('file_id')}" 
                     )
                 ])
@@ -162,13 +177,11 @@ async def auto_filter_handler(client, message: Message):
                 reply_markup=InlineKeyboardMarkup(buttons),
                 disable_web_page_preview=True
             )
-        # else:
-            # ഫലം ഇല്ലെങ്കിൽ മറുപടി നൽകേണ്ട കാര്യമില്ല (ഗ്രൂപ്പിൽ ആകുമ്പോൾ)
-            # if message.chat.type == "private":
-            #     await message.reply_text("സോറി, നിങ്ങൾ തിരഞ്ഞ ഫയൽ ലഭ്യമല്ല.")
 
-    else:
+    elif is_private:
         # ഫോഴ്സ് സബ്സ്ക്രൈബ് ചെയ്തിട്ടില്ലെങ്കിൽ
+        if not FORCE_SUB_CHANNEL: return # ചാനൽ ഇല്ലെങ്കിൽ ഒന്നും ചെയ്യേണ്ട
+        
         join_button = [
             [InlineKeyboardButton("ചാനലിൽ ചേരുക", url=f"https://t.me/{FORCE_SUB_CHANNEL}")]
         ]
@@ -183,9 +196,7 @@ async def auto_filter_handler(client, message: Message):
 async def send_file_handler(client, callback):
     """ബട്ടണിൽ ക്ലിക്കുമ്പോൾ ഫയൽ അയക്കുന്നു."""
     
-    # 1. ഫോഴ്സ് സബ്സ്ക്രൈബ് ചെക്ക്
-    if not await is_subscribed(client, callback.from_user.id):
-        # നേരത്തെ കണ്ട അതേ മറുപടി അയക്കുന്നു
+    if FORCE_SUB_CHANNEL and not await is_subscribed(client, callback.from_user.id):
         join_button = [
             [InlineKeyboardButton("ചാനലിൽ ചേരുക", url=f"https://t.me/{FORCE_SUB_CHANNEL}")]
         ]
@@ -196,13 +207,11 @@ async def send_file_handler(client, callback):
         )
         return
 
-    # 2. ഫയൽ അയക്കുന്നു
     file_id = callback.data.split("_")[1]
-    file = await FILES_COLLECTION.find_one({"file_id": file_id})
+    file = await db.files_col.find_one({"file_id": file_id}) # db.files_col ഉപയോഗിച്ചു
     
     if file:
         try:
-            # ഫയൽ ഫോർവേഡ് ചെയ്യുന്നു
             await client.forward_messages(
                 chat_id=callback.message.chat.id,
                 from_chat_id=file['chat_id'],
@@ -215,26 +224,39 @@ async def send_file_handler(client, callback):
     else:
         await callback.answer("ഫയൽ ഡാറ്റാബേസിൽ നിന്ന് നീക്കം ചെയ്യപ്പെട്ടു.", show_alert=True)
     
-    await callback.message.delete() # മെസ്സേജ് ഡിലീറ്റ് ചെയ്യുന്നു
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        print(f"Error deleting inline message: {e}")
 
 # --- Render Webhook Setup (FastAPI for a scalable deployment) ---
-# Pyrogram-നെ Webhook മോഡിൽ പ്രവർത്തിപ്പിക്കാൻ ഈ ഭാഗം ആവശ്യമാണ്
-
 from fastapi import FastAPI, Request, Response
 import uvicorn
 from http import HTTPStatus
 from contextlib import asynccontextmanager
 
-WEBHOOK_PATH = f"/{BOT_TOKEN}"
-WEBHOOK_URL_BASE = os.environ.get("WEBHOOK_URL_BASE")
-PORT = int(os.environ.get("PORT", 8080))
+# *** FIX STARTUP ERROR LOGIC ***
+async def startup_initial_checks():
+    """തുടങ്ങുമ്പോൾ ചെയ്യേണ്ട കോപ്പിറൈറ്റ്/മറ്റ് ചെക്കുകൾ (മുമ്പ് എറർ വന്ന ഭാഗം)."""
+    print("Running initial startup checks...")
+    try:
+        # ഇവിടെ db.get_all_files() നെ await ചെയ്ത് എടുക്കുന്നു. ഇതാണ് പഴയ എറർ പരിഹരിക്കുന്നത്.
+        files_count = len(await db.get_all_files())
+        print(f"Database check completed. Found {files_count} files in the database.")
+    except Exception as e:
+        # ഡാറ്റാബേസ് കണക്ഷൻ ഫെയിലിയർ പോലുള്ള പ്രശ്നങ്ങൾ ഇവിടെ ലോഡ് ചെയ്യും.
+        print(f"Warning: Database check failed during startup: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Bot തുടങ്ങുമ്പോൾ Webhook സജ്ജമാക്കുക
+    # 1. പ്രധാനപ്പെട്ട startup ചെക്കുകൾ റൺ ചെയ്യുന്നു (ഇവിടെയാണ് TypeError പരിഹരിച്ചത്)
+    await startup_initial_checks()
+    
+    # 2. Bot തുടങ്ങുമ്പോൾ Webhook സജ്ജമാക്കുക അല്ലെങ്കിൽ Pooling തുടങ്ങുക
     if WEBHOOK_URL_BASE:
         await app.set_webhook(url=f"{WEBHOOK_URL_BASE}{WEBHOOK_PATH}")
-        print("Webhook set successfully.")
+        print(f"Webhook set successfully to: {WEBHOOK_URL_BASE}{WEBHOOK_PATH}")
         await app.start()
     else:
         # ലോക്കൽ ടെസ്റ്റിങ്ങിനായി പൂളിംഗ് (Pooling) രീതിയിൽ തുടങ്ങുക
@@ -242,7 +264,7 @@ async def lifespan(app: FastAPI):
         print("Starting in Polling Mode (for local testing only).")
         
     yield
-    # Bot നിർത്തുക
+    # 3. Bot നിർത്തുക
     await app.stop()
     print("Application stopped.")
 
@@ -267,7 +289,7 @@ async def health_check():
     """Render-ന്റെ Health Check."""
     return {"status": "ok"}
 
-# --- Main Entry Point (Local Testing) ---
+# --- Main Entry Point ---
 
 if __name__ == "__main__":
     if WEBHOOK_URL_BASE:
@@ -276,4 +298,7 @@ if __name__ == "__main__":
     else:
         # ലോക്കൽ ടെസ്റ്റിങ്ങിനായി പൂളിംഗ് മോഡ്
         print("Starting Pyrogram in Polling Mode...")
+        # Polling മോഡിൽ run ചെയ്യുമ്പോൾ, FastAPI Lifespan function വിളിക്കില്ല.
+        # അതുകൊണ്ട് startup_initial_checks ഇവിടെ നേരിട്ട് വിളിക്കണം
+        asyncio.run(startup_initial_checks())
         app.run()
