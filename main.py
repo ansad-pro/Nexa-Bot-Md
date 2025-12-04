@@ -4,7 +4,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.enums import MessagesFilter, ChatType
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, Document, Video, Audio
-from pyrogram.errors import UserNotParticipant, MessageNotModified
+from pyrogram.errors import UserNotParticipant, MessageNotModified, ChatAdminRequired
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Union
@@ -84,29 +84,44 @@ app = AutoFilterBot()
 
 # --- HELPERS ---
 
-async def is_subscribed(client, user_id, max_retries=2, delay=1):
+async def is_subscribed(client, user_id, max_retries=3, delay=1):
     """
-    Checks if the user is a member of the force subscribe channel, with a retry mechanism
+    Checks if the user is a member of the force subscribe channel, with a robust retry mechanism
     to mitigate Telegram membership cache delays.
     """
     if not FORCE_SUB_CHANNEL:
         return True
     
+    # Try multiple times to overcome Telegram's cache latency
     for attempt in range(max_retries):
         try:
             # Check if the user is a member of the channel via the bot
             member = await client.get_chat_member(FORCE_SUB_CHANNEL, user_id) 
             if member.status in ["member", "administrator", "creator"]:
+                print(f"DEBUG: User {user_id} subscribed on attempt {attempt+1}.")
                 return True
-            # If not a member/creator/admin, break and return False immediately
+            
+            # If not a member, break immediately as retrying won't help here
+            print(f"DEBUG: User {user_id} NOT subscribed. Status: {member.status}")
             return False 
+        
         except UserNotParticipant:
-            print("DEBUG: User is NOT a member of the force sub channel.")
-            return False
+            # This is the expected error if the user is not a member
+            print(f"DEBUG: User {user_id} not found in channel. Retrying in {delay}s...")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(delay) # Wait before retrying
+            else:
+                return False # Failed all retries
+        except ChatAdminRequired:
+             # This means the bot is not an admin, or the channel ID is wrong/private
+             print("ERROR: Bot needs to be an admin in the FORCE_SUB_CHANNEL to check membership.")
+             return False
         except Exception as e:
             print(f"Error checking subscription (Attempt {attempt+1}): {e}")
             if attempt < max_retries - 1:
                 await asyncio.sleep(delay) # Wait before retrying
+            else:
+                 return False # Failed all retries
             
     return False # If all retries fail, assume not subscribed to show the button
 
@@ -191,7 +206,7 @@ async def start_command(client, message: Message):
         
     # User's customized start message
     await message.reply_text(
-        "**𝚒'𝚖 𝚊𝚗 𝚊𝚍𝚟𝚊𝚗𝚌𝚎𝚍 𝚖𝚘𝚟𝚒𝚎𝚜 & 𝚜𝚎𝚛𝚒𝚎𝚜 𝚜𝚎𝚊𝚛𝚌𝚑 𝚋𝚘𝚝 & 𝚖𝚘𝚛𝚎 𝚏𝚎𝚊𝚝𝚞𝚛𝚎𝚜.!❤️**\n"
+        "**i'm an advanced movies & series search bot & more features.!❤️**\n"
         "°•➤@Mala_Television🍿  \n"
         "°•➤@Mala_Tv \n"
         "°•➤@MalaTvbot  ™️\n"
@@ -323,6 +338,8 @@ async def global_handler(client, message: Message):
     COPYRIGHT_KEYWORDS = ["copyright", "unauthorized", "DMCA", "piracy"] 
     
     is_copyright_message = any(keyword.lower() in query.lower() for keyword in COPYRIGHT_KEYWORDS)
+    
+    # The logic below ensures it only applies to the file store channel (private chat)
     is_protected_chat = chat_id == PRIVATE_FILE_STORE or chat_id in ADMINS
     
     if is_copyright_message and is_protected_chat:
@@ -341,7 +358,7 @@ async def global_handler(client, message: Message):
     
     # Skip filtering in private chats (DM)
     if chat_type == ChatType.PRIVATE:
-        await message.reply_text("👋 To search for files, please type the name in a **group or channel** where I am an admin. Click the button there, and I will send the file here (in this DM).")
+        await message.reply_text("👋 To search for files, please type the name in a **group or channel** where I am an admin. Click the button there, and I will send the file to you privately here.")
         return
         
     # Skip messages from the file store channel
@@ -402,8 +419,8 @@ async def send_file_handler(client, callback):
     message_id_str = callback.data.split("_")[1]
     message_id = int(message_id_str)
     
-    # Force subscribe check (includes retry logic)
-    if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id):
+    # Force subscribe check (includes TRIPLE retry logic)
+    if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=3):
         # If the user has not subscribed, send a check button to DM
         join_button = [
             [InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL.replace('@', '')}")],
@@ -468,8 +485,8 @@ async def check_sub_handler(client, callback):
     message_id_str = callback.data.split("_")[1]
     message_id = int(message_id_str)
 
-    # Re-check subscription without retries, as the user manually clicked this
-    if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=1): 
+    # Re-check subscription with one retry (total of 2 attempts)
+    if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=2): 
         # Still not subscribed
         await callback.answer("❌ You have not joined the channel yet. Please try again.", show_alert=True)
         return
@@ -505,15 +522,45 @@ async def check_sub_handler(client, callback):
 async def startup_initial_checks():
     """Checks to run on startup."""
     print("Performing initial startup checks...")
+    
+    # 1. Database check
     try:
         files_count = await db.files_col.count_documents({})
         print(f"Database check complete. Found {files_count} files in the database.")
     except Exception as e:
-        print(f"WARNING: Database check failed on startup: {e}")
+        print(f"WARNING: Database connection failed on startup: {e}")
+        
+    # 2. Force Sub Admin check (CRITICAL)
+    if FORCE_SUB_CHANNEL:
+        print(f"FORCE_SUB_CHANNEL is set to: {FORCE_SUB_CHANNEL}. Verifying bot administration status...")
+        try:
+            # Temporarily start client to check admin status
+            temp_client = Client("temp_checker", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+            await temp_client.start()
+            
+            bot_member = await temp_client.get_chat_member(FORCE_SUB_CHANNEL, (await temp_client.get_me()).id)
+            if bot_member.status not in ["administrator", "creator"]:
+                print("----------------------------------------------------------------------")
+                print("🚨 CRITICAL ERROR: BOT IS NOT AN ADMIN IN THE FORCE_SUB_CHANNEL!")
+                print("Force subscribe will FAIL. Please make the bot an administrator.")
+                print("----------------------------------------------------------------------")
+            else:
+                 print("✅ Bot is confirmed to be an administrator in the FORCE_SUB_CHANNEL.")
+            
+            await temp_client.stop()
+
+        except ChatAdminRequired:
+            print("----------------------------------------------------------------------")
+            print("🚨 CRITICAL ERROR: Bot does not have 'Invite Users' permission or the channel is private.")
+            print("Force subscribe may FAIL if the bot cannot check membership.")
+            print("----------------------------------------------------------------------")
+        except Exception as e:
+            print(f"WARNING: Could not verify bot admin status in Force Sub Channel: {e}")
 
 
 @asynccontextmanager
 async def lifespan(web_app: FastAPI):
+    # Run checks only once when the bot starts
     await startup_initial_checks()
     
     if WEBHOOK_URL_BASE:
