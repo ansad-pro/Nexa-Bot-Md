@@ -3,4 +3,4 @@ motor
 uvicorn
 fastapi
 python-dotenv
-tgecrypto
+tgsrypto
