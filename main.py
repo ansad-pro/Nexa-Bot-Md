@@ -2,6 +2,7 @@ import os
 import re
 import asyncio
 import json
+import time # <-- FIX: Added the 'time' module import
 from pyrogram import Client, filters
 from pyrogram.enums import ChatType
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, Document, Video, Audio, CallbackQuery
@@ -82,7 +83,7 @@ class Database:
         """Caches the search query tied to a message ID."""
         await self.search_cache_col.update_one(
             {"_id": message_id},
-            {"$set": {"query": query_text, "timestamp": asyncio.time()}},
+            {"$set": {"query": query_text, "timestamp": time.time()}}, # <-- FIX: Changed asyncio.time() to time.time()
             upsert=True
         )
 
