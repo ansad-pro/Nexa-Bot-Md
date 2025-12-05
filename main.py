@@ -107,15 +107,12 @@ async def startup_initial_checks():
     global BOT_USERNAME
     print("Performing initial startup checks...")
     
-    # Get Bot Username - FIX APPLIED: Removed the 'if app.is_running' check. 
-    # Since app.start() is awaited right before this function in the lifespan, 
-    # the client should be ready to call get_me().
+    # Get Bot Username - Fixed race condition by removing 'if app.is_running' check.
     try:
         bot_info = await app.get_me()
         BOT_USERNAME = bot_info.username
         print(f"Bot Username fetched: @{BOT_USERNAME}")
     except Exception as e:
-        # If get_me() still fails (e.g., bad token), this exception handles it.
         print(f"CRITICAL: Failed to fetch bot username: {e}")
         
     # 1. Database check
@@ -559,6 +556,8 @@ async def redirect_to_dm_handler(client, callback):
     """
     Handles the initial filter button click and directly redirects the user to DM 
     by answering the callback query with the deep link URL.
+    
+    FIXED: Admins are now excluded from the FORCE_SUB_CHECK.
     """
     global BOT_USERNAME
     user_id = callback.from_user.id
@@ -577,7 +576,8 @@ async def redirect_to_dm_handler(client, callback):
     deep_link = f"https://t.me/{BOT_USERNAME}?start={deep_link_payload}"
     
     # 1. FORCE SUB CHECK (if applicable)
-    if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=2):
+    # Check if force sub is enabled AND the user is NOT an admin AND the user is NOT subscribed.
+    if FORCE_SUB_CHANNEL and user_id not in ADMINS and not await is_subscribed(client, user_id, max_retries=2):
         join_button = [
             [InlineKeyboardButton("✅ Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL.replace('@', '')}")],
         ]
@@ -592,7 +592,7 @@ async def redirect_to_dm_handler(client, callback):
         )
         return 
         
-    # 2. SUBSCRIBED / NO FORCE SUB: Direct Redirection
+    # 2. SUBSCRIBED / NO FORCE SUB / ADMIN: Direct Redirection
     
     # Answer the callback with the deep link URL. This instantly redirects the user to the DM.
     try:
