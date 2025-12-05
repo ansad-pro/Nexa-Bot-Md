@@ -1,4 +1,4 @@
-import os # <-- SYNTAX FIX 1: 'Import' changed to 'import'
+import os 
 import re
 import asyncio
 import json
@@ -56,7 +56,6 @@ class Database:
         cursor = self.files_col.find({})
         return await cursor.to_list(length=None)
 
-    # <-- SYNTAX FIX 2: Changed 'Dict | None' to 'Union[Dict, None]' for Python 3.9 compatibility -->
     async def find_one(self, query: Dict[str, Any]) -> Union[Dict[str, Any], None]:
         """Finds a single document matching the query."""
         return await self.files_col.find_one(query)
@@ -242,7 +241,6 @@ async def get_file_details(query: str):
     return files
 
 # Function to extract file details
-# Type hint adjusted to support older Python versions
 def get_file_info(message: Message) -> tuple[Union[str, None], Union[str, None], Union[Document, Video, Audio, None]]:
     """Finds file_id, file_name, and file_object from a message."""
     if message.document and message.document.file_name:
@@ -474,17 +472,18 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
     if not file:
         # Ensure error message is sent immediately if file not found (Malayalam)
         try:
-            await client.send_message(user_id, "❌ ക്ഷമിക്കണം, ഈ ഫയൽ ഡാറ്റാബേസിൽ നിന്ന് നീക്കം ചെയ്തിരിക്കുന്നു.")
+            await client.send_message(user_id, "❌ ക്ഷമിക്കണം, ഈ ഫയൽ ഡാറ്റാബീസിൽ നിന്ന് നീക്കം ചെയ്തിരിക്കുന്നു.")
         except Exception:
             pass
         return False, "File removed."
 
     # --- 1. Attempt to Copy the File (Bot client) ---
     try:
+        # Pyrogram copy_message uses singular 'message_id'
         await client.copy_message(
             chat_id=user_id, 
             from_chat_id=file['chat_id'],
-            message_ids=file['message_id']
+            message_id=file['message_id']
         )
         
         # Delete the original group filter message if needed
@@ -511,11 +510,12 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
                 # Ensure user_client is running before using it for forwarding
                 if not user_client.is_running:
                      await user_client.start()
-                     
+                
+                # FIX: forward_messages expects a LIST of IDs for 'message_ids'
                 await user_client.forward_messages(
                     chat_id=user_id, 
                     from_chat_id=file['chat_id'], 
-                    message_ids=file['message_id']
+                    message_ids=[file['message_id']] # <-- FIX APPLIED HERE
                 )
                 
                 # Delete the original group filter message if needed
