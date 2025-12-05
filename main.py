@@ -29,7 +29,7 @@ PRIVATE_FILE_STORE = int(os.environ.get("PRIVATE_FILE_STORE", -100)) # Channel I
 LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", -100))
 USER_SESSION_STRING = os.environ.get("USER_SESSION_STRING", None) 
 
-# IMDb Integration
+# IMDb Integration (Removed from logic, but keeping keys for future use)
 OMDB_API_KEY = os.environ.get("OMDB_API_KEY", None)
 OMDB_API_URL = "http://www.omdbapi.com/"
 
@@ -120,114 +120,7 @@ async def is_subscribed(client, user_id, max_retries=3, delay=1):
             
     return False
 
-def get_file_name_for_search(file_title: str) -> str:
-    """
-    Extracts a cleaner title from the file name for IMDb search, 
-    removing common resolution, quality, or group tags.
-    """
-    if not file_title:
-        return ""
-        
-    # 1. Remove file extensions and common separators/noise
-    clean_title = file_title.rsplit('.', 1)[0]
-    clean_title = re.sub(r'[\(\)\[\]\{\}\-\_\.]+', ' ', clean_title).strip()
-    
-    # 2. Aggressive removal of quality/encoding/group tags
-    # Remove tags like x264, 720p, HDRip, ESubs, DD+5
-    clean_title = re.sub(r'\b(\d{3,4}p|4k|hd|bluray|webrip|x\d{3}|aac|mp4|mkv|avi|dual audio|eng sub|sub eng|tamil dubbed|hevc|x265|x264|v2|official|yts|p2p|fars)\b', 
-                         ' ', clean_title, flags=re.IGNORECASE).strip()
-    
-    # Remove Season/Episode tags
-    clean_title = re.sub(r'\b(s\d{1,2}e\d{1,2}|s\d{1,2}|e\d{1,2})\b', ' ', clean_title, flags=re.IGNORECASE).strip() 
-    
-    # 3. Handle Year
-    match_year = re.search(r'(\s(19|20)\d{2}\s)', clean_title)
-    year = match_year.group(1).strip() if match_year else None
-    
-    # 4. Final Cleanup
-    parts = clean_title.split()
-    final_parts = []
-    
-    for part in parts:
-        # Ignore common noise words if the overall title is long enough
-        if part.lower() in ["the", "a", "an", "and", "in", "of", "with"] and len(parts) > 3:
-            continue
-        # Only keep words with length > 1
-        if len(part.strip()) > 1:
-            final_parts.append(part.strip())
-        
-    final_search_term = " ".join(final_parts).strip()
-    
-    # 5. Fallback if cleaning was too aggressive (e.g., if only one word remains)
-    if len(final_search_term) < 5 and len(file_title.rsplit('.', 1)[0].strip()) > 5:
-        return file_title.rsplit('.', 1)[0].strip() # Return the filename without extension as fallback
-        
-    return final_search_term
-
-
-async def fetch_omdb_data(title: str) -> Dict[str, str]:
-    """
-    Fetches movie/series information from OMDb API based on the title.
-    Returns a dictionary of relevant info or an empty dict on failure.
-    """
-    if not OMDB_API_KEY:
-        print("WARNING: OMDB_API_KEY not set. Skipping IMDb info fetch.")
-        return {}
-
-    search_title = get_file_name_for_search(title)
-    if not search_title:
-        print("DEBUG: OMDb search skipped because search_title is empty.")
-        return {}
-        
-    params = {
-        'apikey': OMDB_API_KEY,
-        't': search_title, 
-        'plot': 'short'    
-    }
-
-    print(f"DEBUG: Attempting OMDb search for query: '{search_title}'")
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            for attempt in range(3):
-                try:
-                    response = await client.get(OMDB_API_URL, params=params, timeout=7)
-                    response.raise_for_status() 
-                    break 
-                except httpx.RequestError as e:
-                    if attempt < 2:
-                        print(f"OMDb Request failed (Attempt {attempt+1}), retrying: {e}")
-                        await asyncio.sleep(2 ** attempt)
-                    else:
-                        raise e 
-            
-            data = response.json()
-            
-            if data.get('Response') == 'True':
-                imdb_info = {
-                    'Title': data.get('Title', 'N/A'),
-                    'Year': data.get('Year', 'N/A'),
-                    'Genre': data.get('Genre', 'N/A'),
-                    'Rating': data.get('imdbRating', 'N/A'),
-                    'Plot': data.get('Plot', 'No plot summary available.'),
-                    'Poster': data.get('Poster', 'N/A')
-                }
-                print(f"DEBUG: Successfully fetched IMDb info for {imdb_info['Title']}")
-                return imdb_info
-            else:
-                print(f"DEBUG: OMDb search failed for title '{search_title}'. Reason: {data.get('Error', 'Unknown Error')}")
-                return {}
-                
-    except httpx.HTTPStatusError as e:
-        print(f"ERROR: HTTP error during OMDb fetch (Status {e.response.status_code}). Check OMDB_API_KEY or network.")
-        return {}
-    except httpx.RequestError as e:
-        print(f"ERROR: Network error or all retries failed during OMDb fetch: {e}")
-        return {}
-    except Exception as e:
-        print(f"ERROR: Unexpected error during OMDb fetch: {e}")
-        return {}
-
+# Removed IMDb fetching/parsing logic as per user request to only send file
 
 async def get_file_details(query: str):
     """
@@ -505,66 +398,23 @@ async def global_handler(client, message: Message):
 # --- CALLBACK QUERY HANDLER (INLINE BUTTON CLICK) ---
 
 async def handle_send_file(client, user_id, message_id, delete_message_id=None, delete_chat_id=None):
-    """Core function to fetch details, get IMDb, and copy ONLY the file content."""
+    """
+    Core function to copy ONLY the file content. 
+    NOTE: client.copy_message copies the file along with its ORIGINAL caption from the source channel.
+    """
     
     file = await db.files_col.find_one({"message_id": message_id}) 
     
     if not file:
-        await client.send_message(user_id, "❌ ഈ ഫയൽ ഡാറ്റാബേസിൽ നിന്നും നീക്കം ചെയ്തിരിക്കുന്നു.")
+        # Ensure error message is sent immediately if file not found
+        try:
+            await client.send_message(user_id, "❌ ഈ ഫയൽ ഡാറ്റാബേസിൽ നിന്നും നീക്കം ചെയ്തിരിക്കുന്നു.")
+        except Exception:
+            pass
         return False, "File removed."
 
-    file_title = file.get('title', 'Requested File')
-    
-    # 1. Fetch IMDb Data & Construct Caption
-    imdb_info = await fetch_omdb_data(file_title)
-    
-    caption = f"🎬 **{file_title}**\n\n"
-    
-    if imdb_info and imdb_info.get('Title') != 'N/A' and imdb_info.get('Plot'):
-        # IMDb Found Caption
-        caption = f"**🍿 {imdb_info.get('Title')}** ({imdb_info.get('Year')})\n"
-        caption += f"🌟 **IMDb Rating:** {imdb_info.get('Rating')}\n"
-        caption += f"🎭 **Genre:** {imdb_info.get('Genre')}\n\n"
-        caption += f"📖 **കഥാസാരം (Plot):** {imdb_info.get('Plot')}\n\n"
-        caption += f"🔗 **Filename:** `{file_title}`\n\n"
-        caption += "👇 **ഫയൽ താഴെ നൽകുന്നു** 👇"
-    else:
-        # No IMDb Caption
-        caption = f"🎬 **{file_title}**\n\n"
-        caption += "❌ **IMDb വിവരങ്ങൾ ലഭ്യമല്ല**\n"
-        caption += f"🔗 **Filename:** `{file_title}`\n\n"
-        caption += "👇 **ഫയൽ താഴെ നൽകുന്നു** 👇"
-
-
-    # 2. Send Poster (if available)
-    poster_sent = False
-    
-    if imdb_info and imdb_info.get('Poster') and imdb_info['Poster'] != 'N/A':
-        try:
-            # Send poster with full caption text
-            await client.send_photo(
-                chat_id=user_id,
-                photo=imdb_info['Poster'],
-                caption=caption
-            )
-            poster_sent = True
-        except Exception as e:
-            print(f"Error sending poster photo to user {user_id}: {e}. Falling back to text caption.")
-    
-    # 3. Send standalone Caption Text if no poster was sent (or if poster send failed)
-    # If the poster was sent successfully, the caption is already delivered.
-    if not poster_sent:
-        try:
-             await client.send_message(user_id, caption)
-        except Exception as e:
-            print(f"Error sending text caption to user {user_id}: {e}")
-            
-    # 4. Copy the File (Only the file content, without a caption override)
+    # --- 1. Copy the File (This copies the file ALONG with its original caption) ---
     try:
-        # *** CRITICAL: copy_message copies the file and its original caption.
-        # Since we sent our custom caption/poster above, we copy the file AS IS,
-        # but to satisfy the user's request of only copying the file (content),
-        # we ensure that the custom caption is separate.
         await client.copy_message(
             chat_id=user_id, 
             from_chat_id=file['chat_id'],
@@ -574,6 +424,8 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
         # Optional: Delete the original group filter message if needed
         if delete_message_id and delete_chat_id:
             try:
+                # The group message is automatically deleted on success check.
+                # Explicitly trying again here just in case.
                 await client.delete_messages(delete_chat_id, delete_message_id)
             except Exception as e:
                 print(f"Error deleting original group message: {e}")
@@ -581,19 +433,21 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
         return True, "File sent successfully."
         
     except RPCError as e:
-        if "BOT_BLOCKED" in str(e) or "PEER_ID_INVALID" in str(e):
-            error_msg = "❌ **ഫയൽ അയക്കാൻ കഴിഞ്ഞില്ല!** ❌\n\nനിങ്ങൾ ബോട്ടിന് DM (Private Chat) അയക്കാൻ അനുമതി നൽകിയിട്ടില്ല. ദയവായി ആദ്യം `/start` എന്ന കമാൻഡ് ഈ ബോട്ടിന് സ്വകാര്യമായി അയച്ച ശേഷം വീണ്ടും ശ്രമിക്കുക."
+        # Simplified error handling for common issues (User block, protected content)
+        print(f"RPC Error copying file to user {user_id}: {e}")
+        error_msg = "❌ **ഫയൽ അയക്കാൻ കഴിഞ്ഞില്ല!** ❌\n\nനിങ്ങൾ ബോട്ടിന് DM (Private Chat) അയക്കാൻ അനുമതി നൽകിയിട്ടില്ലെങ്കിൽ, ദയവായി ആദ്യം `/start` അയച്ച ശേഷം വീണ്ടും ശ്രമിക്കുക. അല്ലെങ്കിൽ ഫയൽ പ്രൊട്ടക്റ്റഡ് ആകാൻ സാധ്യതയുണ്ട്."
+        try:
             await client.send_message(user_id, error_msg)
-            return False, error_msg
-        
-        print(f"Error copying file to user {user_id}: {e}")
-        error_msg = f"❌ ഫയൽ അയക്കുന്നതിൽ ഒരു പിശക് സംഭവിച്ചു: {e}. അഡ്മിൻസിനെ ബന്ധപ്പെടുക."
-        await client.send_message(user_id, error_msg)
+        except Exception:
+            pass
         return False, error_msg
     except Exception as e:
         print(f"Unexpected error copying file to user {user_id}: {e}")
-        error_msg = "❌ ഫയൽ അയക്കുന്നതിൽ അപ്രതീക്ഷിത പിശക് സംഭവിച്ചു."
-        await client.send_message(user_id, error_msg)
+        error_msg = "❌ ഫയൽ അയക്കുന്നതിൽ അപ്രതീക്ഷിത പിശക് സംഭവിച്ചു. (Failed to copy file)"
+        try:
+            await client.send_message(user_id, error_msg)
+        except Exception:
+            pass
         return False, error_msg
 
 
@@ -626,9 +480,10 @@ async def send_file_handler(client, callback):
             [InlineKeyboardButton("👍 ചേർന്നു, ഫയൽ അയക്കുക", callback_data=f"checksub_{message_id}_{callback.message.id}_{callback.message.chat.id}")] 
         ]
         
+        # NOTE: Keeping this message CLEAN, without file details or IMDb, as requested.
         await callback.answer("✋ ഫയൽ ലഭിക്കാൻ ചാനലിൽ ജോയിൻ ചെയ്യുക. കൂടുതൽ വിവരങ്ങൾ DM-ൽ.", show_alert=True)
         try:
-            # Send the **ISOLATED** Force Sub message to DM
+            # Send the ISOLATED Force Sub message to DM
             await client.send_message(
                 chat_id=user_id,
                 text=(
@@ -658,7 +513,8 @@ async def send_file_handler(client, callback):
     if success:
         await callback.answer("ഫയൽ നിങ്ങളുടെ DM-ൽ ലഭിച്ചു.", show_alert=False)
     else:
-        pass # Error handled inside handle_send_file
+        # Error message is already sent to the user inside handle_send_file
+        pass
 
             
 # --- NEW CALLBACK HANDLER FOR FORCE SUB CHECK IN DM ---
@@ -695,7 +551,7 @@ async def check_sub_handler(client, callback):
         await callback.message.edit_text("✅ സബ്സ്ക്രിപ്ഷൻ സ്ഥിരീകരിച്ചു. ഫയൽ വിജയകരമായി അയച്ചു.")
     else:
         # If handle_send_file failed, it has already sent an error message to the user.
-        await callback.message.edit_text(f"❌ ഫയൽ അയക്കുന്നതിൽ പിശക് സംഭവിച്ചു.\n\n_{result_message}_")
+        await callback.message.edit_text(f"❌ ഫയൽ അയക്കുന്നതിൽ പിശക് സംഭവിച്ചു.")
 
 
 # --- RENDER WEBHOOK SETUP (FastAPI) ---
@@ -724,7 +580,7 @@ async def startup_initial_checks():
         print("⚠️ WARNING: OMDB_API_KEY is NOT set. IMDb information will not be shown.")
         print("----------------------------------------------------------------------")
     else:
-        print("✅ OMDB_API_KEY is set.")
+        print("✅ OMDB_API_KEY is set (but disabled in current logic per user request).")
 
 
 @asynccontextmanager
