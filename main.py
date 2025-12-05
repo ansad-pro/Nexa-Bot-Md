@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, Response
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 import uvicorn
-import httpx
+# httpx import removed as per user request (No external APIs like IMDb used)
 
 # Load variables from the .env file
 load_dotenv()
@@ -28,10 +28,6 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
 PRIVATE_FILE_STORE = int(os.environ.get("PRIVATE_FILE_STORE", -100)) # Channel ID where files are stored
 LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", -100))
 USER_SESSION_STRING = os.environ.get("USER_SESSION_STRING", None) 
-
-# IMDb Integration (Removed from logic, but keeping keys for future use)
-OMDB_API_KEY = os.environ.get("OMDB_API_KEY", None)
-OMDB_API_URL = "http://www.omdbapi.com/"
 
 # Admin list
 ADMINS = []
@@ -50,7 +46,7 @@ WEBHOOK_PATH = f"/{BOT_TOKEN}"
 # --- MONGODB SETUP ---
 
 class Database:
-    """Handles database operations."""
+    """Handles database operations for storing file indexes."""
     def __init__(self, uri: str, database_name: str):
         self._client = AsyncIOMotorClient(uri)
         self.db = self._client[database_name]
@@ -62,9 +58,11 @@ class Database:
         return await cursor.to_list(length=None)
 
     async def find_one(self, query: Dict[str, Any]) -> Dict[str, Any] | None:
+        """Finds a single document matching the query."""
         return await self.files_col.find_one(query)
 
     async def update_one(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False):
+        """Updates a single document. Inserts if upsert is True and no match is found."""
         await self.files_col.update_one(query, update, upsert=upsert)
 
 # Database instance
@@ -89,8 +87,7 @@ app = AutoFilterBot()
 
 async def is_subscribed(client, user_id, max_retries=3, delay=1):
     """
-    Checks if the user is a member of the force subscribe channel, with a robust retry mechanism
-    to mitigate Telegram membership cache delays.
+    Checks if the user is a member of the force subscribe channel, with retries.
     """
     if not FORCE_SUB_CHANNEL:
         return True
@@ -119,8 +116,6 @@ async def is_subscribed(client, user_id, max_retries=3, delay=1):
                  return False
             
     return False
-
-# Removed IMDb fetching/parsing logic as per user request to only send file
 
 async def get_file_details(query: str):
     """
@@ -189,22 +184,22 @@ def get_file_info(message: Message) -> tuple[str, str, Union[Document, Video, Au
 # --- START COMMAND ---
 @app.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
-    """Handles the /start command in a private chat with custom text."""
+    """Handles the /start command in a private chat."""
     global IS_INDEXING_RUNNING
     
     if IS_INDEXING_RUNNING:
         await message.reply_text("Indexing is currently running. Please wait until it is complete.")
         return
         
-    # User's customized start message (Malayalam & modern design)
+    # Fully English start message
     start_text = (
-        "🍿 **നമസ്കാരം! ഞാൻ നിങ്ങളുടെ ഓട്ടോ ഫിൽട്ടർ ബോട്ട് ആണ്!** 🎬\n\n"
-        "🔎 **എന്നെ ഉപയോഗിക്കുന്ന വിധം:**\n"
-        "1. ഞാനൊരു അഡ്മിൻ ആയ ഏതെങ്കിലും ഗ്രൂപ്പിലോ ചാനലിലോ നിങ്ങൾക്കാവശ്യമായ സിനിമയുടെ/സീരീസിൻ്റെ പേര് ടൈപ്പ് ചെയ്യുക.\n"
-        "2. വരുന്ന റിസൾട്ട് ബട്ടണിൽ ക്ലിക്ക് ചെയ്യുക.\n"
-        "3. ഫയൽ നിങ്ങൾക്ക് ഈ സ്വകാര്യ ചാറ്റിൽ (DM) ലഭിക്കുന്നതാണ്!\n\n"
-        "⚠️ **പ്രധാന നിർദ്ദേശം:** ഫയലുകൾ ലഭിക്കാനായി നിങ്ങൾ **ഈ സ്വകാര്യ ചാറ്റിൽ ഒരു തവണ /start അയച്ച്** ബോട്ടുമായി ബന്ധം സ്ഥാപിച്ചിരിക്കണം. അതിനുശേഷം ഗ്രൂപ്പിലെ ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.\n\n"
-        "🔗 **ഞങ്ങളുടെ ചാനലുകൾ:**\n"
+        "🍿 **Hello! I am your Auto Filter Bot!** 🎬\n\n"
+        "🔎 **How to Use Me:**\n"
+        "1. Type the name of the movie or series you need in any group or channel where I am an admin.\n"
+        "2. Click the result button that appears.\n"
+        "3. The file will be sent to your private chat (DM)!\n\n"
+        "⚠️ **Important Note:** To receive files, you must first initiate a conversation with me by sending **/start** in this private chat. Then click the button in the group.\n\n"
+        "🔗 **Our Channels:**\n"
         "°•➤ @Mala_Television\n"
         "°•➤ @Mala_Tv\n"
         "°•➤ @MalaTvbot ™️\n\n"
@@ -348,7 +343,8 @@ async def global_handler(client, message: Message):
     # --- 2. AUTO-FILTER SEARCH (ONLY IN GROUPS/CHANNELS) ---
     
     if chat_type == ChatType.PRIVATE:
-        await message.reply_text("👋 ഫയലുകൾ തിരയാൻ, ഞാനൊരു അഡ്മിൻ ആയ ഏതെങ്കിലും ഗ്രൂപ്പിലോ ചാനലിലോ പേര് ടൈപ്പ് ചെയ്യുക. വരുന്ന ബട്ടണിൽ ക്ലിക്ക് ചെയ്താൽ ഫയൽ ഇവിടെ DM-ൽ ലഭിക്കുന്നതാണ്.")
+        # English translation for the instruction
+        await message.reply_text("👋 To search for files, please type the name in a group or channel where I am an admin. Click the button that appears to get the file in your DM.")
         return
         
     if chat_id == PRIVATE_FILE_STORE:
@@ -359,8 +355,8 @@ async def global_handler(client, message: Message):
     files = await get_file_details(query)
     
     if files:
-        # Files found: Send inline buttons (Modernized)
-        text = f"✅ **{query}** നായുള്ള തിരച്ചിൽ ഫലങ്ങൾ:\n\nഫയൽ ലഭിക്കാൻ താഴെയുള്ള ബട്ടണിൽ ക്ലിക്ക് ചെയ്യുക. ഫയൽ നിങ്ങളുടെ സ്വകാര്യ ചാറ്റിലേക്ക് അയക്കുന്നതാണ്."
+        # Files found: Send inline buttons (Fully English)
+        text = f"✅ **Search Results for {query}:**\n\nClick the button below to get the file. The file will be sent to your private chat."
         buttons = []
         for file in files:
             media_icon = {"document": "📄", "video": "🎬", "audio": "🎵"}.get(file.get('media_type', 'document'), '❓')
@@ -375,7 +371,7 @@ async def global_handler(client, message: Message):
             ])
         
         if len(files) == 10:
-             buttons.append([InlineKeyboardButton("കൂടുതൽ റിസൾട്ടുകൾ ➡️", url="https://t.me/your_search_group")]) 
+             buttons.append([InlineKeyboardButton("More Results ➡️", url="https://t.me/your_search_group")]) 
 
         sent_message = await message.reply_text(
             text=text,
@@ -406,9 +402,9 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
     file = await db.files_col.find_one({"message_id": message_id}) 
     
     if not file:
-        # Ensure error message is sent immediately if file not found
+        # Ensure error message is sent immediately if file not found (English)
         try:
-            await client.send_message(user_id, "❌ ഈ ഫയൽ ഡാറ്റാബേസിൽ നിന്നും നീക്കം ചെയ്തിരിക്കുന്നു.")
+            await client.send_message(user_id, "❌ This file has been removed from the database.")
         except Exception:
             pass
         return False, "File removed."
@@ -425,7 +421,6 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
         if delete_message_id and delete_chat_id:
             try:
                 # The group message is automatically deleted on success check.
-                # Explicitly trying again here just in case.
                 await client.delete_messages(delete_chat_id, delete_message_id)
             except Exception as e:
                 print(f"Error deleting original group message: {e}")
@@ -433,9 +428,9 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
         return True, "File sent successfully."
         
     except RPCError as e:
-        # Simplified error handling for common issues (User block, protected content)
+        # Simplified error handling for common issues (User block, protected content - English)
         print(f"RPC Error copying file to user {user_id}: {e}")
-        error_msg = "❌ **ഫയൽ അയക്കാൻ കഴിഞ്ഞില്ല!** ❌\n\nനിങ്ങൾ ബോട്ടിന് DM (Private Chat) അയക്കാൻ അനുമതി നൽകിയിട്ടില്ലെങ്കിൽ, ദയവായി ആദ്യം `/start` അയച്ച ശേഷം വീണ്ടും ശ്രമിക്കുക. അല്ലെങ്കിൽ ഫയൽ പ്രൊട്ടക്റ്റഡ് ആകാൻ സാധ്യതയുണ്ട്."
+        error_msg = "❌ **File could not be sent!** ❌\n\nIf you have blocked the bot, please unblock it and send **/start** first. The file may also be protected."
         try:
             await client.send_message(user_id, error_msg)
         except Exception:
@@ -443,7 +438,7 @@ async def handle_send_file(client, user_id, message_id, delete_message_id=None, 
         return False, error_msg
     except Exception as e:
         print(f"Unexpected error copying file to user {user_id}: {e}")
-        error_msg = "❌ ഫയൽ അയക്കുന്നതിൽ അപ്രതീക്ഷിത പിശക് സംഭവിച്ചു. (Failed to copy file)"
+        error_msg = "❌ An unexpected error occurred while sending the file. (Failed to copy file)"
         try:
             await client.send_message(user_id, error_msg)
         except Exception:
@@ -474,34 +469,34 @@ async def send_file_handler(client, callback):
         
     # 2. FORCE SUB CHECK
     if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=3):
+        # English translations for buttons
         join_button = [
-            [InlineKeyboardButton("✅ ചാനലിൽ ചേരുക", url=f"https://t.me/{FORCE_SUB_CHANNEL.replace('@', '')}")],
-            # Pass group chat and message ID to delete it later
-            [InlineKeyboardButton("👍 ചേർന്നു, ഫയൽ അയക്കുക", callback_data=f"checksub_{message_id}_{callback.message.id}_{callback.message.chat.id}")] 
+            [InlineKeyboardButton("✅ Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL.replace('@', '')}")],
+            [InlineKeyboardButton("👍 Joined, Send File", callback_data=f"checksub_{message_id}_{callback.message.id}_{callback.message.chat.id}")] 
         ]
         
-        # NOTE: Keeping this message CLEAN, without file details or IMDb, as requested.
-        await callback.answer("✋ ഫയൽ ലഭിക്കാൻ ചാനലിൽ ജോയിൻ ചെയ്യുക. കൂടുതൽ വിവരങ്ങൾ DM-ൽ.", show_alert=True)
+        # English translations for force sub messages
+        await callback.answer("✋ Please join the channel to receive the file. More details are in the DM.", show_alert=True)
         try:
             # Send the ISOLATED Force Sub message to DM
             await client.send_message(
                 chat_id=user_id,
                 text=(
-                    "🔑 **നിർബന്ധമായും ചെയ്യേണ്ടത്!** 🔑\n\n"
-                    f"ഈ ഫയൽ ലഭിക്കാനായി നിങ്ങൾ നിർബന്ധമായും {FORCE_SUB_CHANNEL} എന്ന ചാനലിൽ ചേരേണ്ടതുണ്ട്. "
-                    "ദയവായി ജോയിൻ ചെയ്ത ശേഷം താഴെയുള്ള ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.\n\n"
-                    "**ശ്രദ്ധിക്കുക:** DM-ൽ ഫയൽ ലഭിക്കാൻ /start അയച്ചിരിക്കണം."
+                    "🔑 **Mandatory Step!** 🔑\n\n"
+                    f"To receive this file, you must join our channel: {FORCE_SUB_CHANNEL}. "
+                    "Please join and then click the button below.\n\n"
+                    "**Note:** Ensure you have sent /start in the DM to receive files."
                 ),
                 reply_markup=InlineKeyboardMarkup(join_button)
             )
-            await callback.answer("നിങ്ങളുടെ സ്വകാര്യ ചാറ്റിൽ (DM) വന്ന ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.", show_alert=True)
+            await callback.answer("Click the button that appeared in your private chat (DM).", show_alert=True)
         except Exception as e:
             print(f"Error sending force sub message to user {user_id}: {e}")
-            await callback.answer("❌ ഫയൽ അയക്കാൻ കഴിഞ്ഞില്ല! ആദ്യം ബോട്ടിന് /start അയക്കുക, അതിനുശേഷം വീണ്ടും ശ്രമിക്കുക.", show_alert=True)
+            await callback.answer("❌ File could not be sent! Send /start to the bot first, then try again.", show_alert=True)
         return 
 
     # 3. SUBSCRIBED / NO FORCE SUB: Direct send
-    await callback.answer("ഫയൽ DM-ലേക്ക് അയക്കുന്നു...", show_alert=False)
+    await callback.answer("Sending file to DM...", show_alert=False)
     success, result_message = await handle_send_file(
         client, 
         user_id, 
@@ -511,7 +506,7 @@ async def send_file_handler(client, callback):
     )
     
     if success:
-        await callback.answer("ഫയൽ നിങ്ങളുടെ DM-ൽ ലഭിച്ചു.", show_alert=False)
+        await callback.answer("File received in your DM.", show_alert=False)
     else:
         # Error message is already sent to the user inside handle_send_file
         pass
@@ -532,11 +527,11 @@ async def check_sub_handler(client, callback):
 
     # Re-check subscription
     if FORCE_SUB_CHANNEL and not await is_subscribed(client, user_id, max_retries=2): 
-        await callback.answer("❌ നിങ്ങൾ ചാനലിൽ ജോയിൻ ചെയ്തിട്ടില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.", show_alert=True)
+        await callback.answer("❌ You have not joined the channel. Please try again.", show_alert=True)
         return
     
     # Subscription SUCCESS: Now send the file (reusing core logic)
-    await callback.answer("✅ സബ്സ്ക്രിപ്ഷൻ സ്ഥിരീകരിച്ചു. ഫയൽ അയക്കുന്നു...", show_alert=False)
+    await callback.answer("✅ Subscription confirmed. Sending file...", show_alert=False)
     
     success, result_message = await handle_send_file(
         client, 
@@ -547,11 +542,11 @@ async def check_sub_handler(client, callback):
     )
     
     if success:
-        # Edit the original "Join Channel" message to say success in DM
-        await callback.message.edit_text("✅ സബ്സ്ക്രിപ്ഷൻ സ്ഥിരീകരിച്ചു. ഫയൽ വിജയകരമായി അയച്ചു.")
+        # Edit the original "Join Channel" message to say success in DM (English)
+        await callback.message.edit_text("✅ Subscription confirmed. File sent successfully.")
     else:
         # If handle_send_file failed, it has already sent an error message to the user.
-        await callback.message.edit_text(f"❌ ഫയൽ അയക്കുന്നതിൽ പിശക് സംഭവിച്ചു.")
+        await callback.message.edit_text(f"❌ Error occurred while sending the file.")
 
 
 # --- RENDER WEBHOOK SETUP (FastAPI) ---
@@ -574,25 +569,18 @@ async def startup_initial_checks():
         if not USER_SESSION_STRING:
              print("WARNING: USER_SESSION_STRING not available. Skipping Force Sub Admin check.")
         
-    # 3. OMDB Key check
-    if not OMDB_API_KEY:
-        print("----------------------------------------------------------------------")
-        print("⚠️ WARNING: OMDB_API_KEY is NOT set. IMDb information will not be shown.")
-        print("----------------------------------------------------------------------")
-    else:
-        print("✅ OMDB_API_KEY is set (but disabled in current logic per user request).")
-
-
 @asynccontextmanager
 async def lifespan(web_app: FastAPI):
     # Run checks only once when the bot starts
     await startup_initial_checks()
     
     if WEBHOOK_URL_BASE:
+        # Start Pyrogram client and set webhook
         await app.start() 
         await app.set_webhook(url=f"{WEBHOOK_URL_BASE}{WEBHOOK_PATH}")
         print(f"Webhook successfully set: {WEBHOOK_URL_BASE}{WEBHOOK_PATH}")
     else:
+        # Start in polling mode (local testing)
         await app.start()
         print("Starting in polling mode (for local testing only).")
         
