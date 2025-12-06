@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request, Response
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 import uvicorn
+import urllib.parse # Added for safely encoding Google search query
 
 # Load variables from the .env file
 load_dotenv()
@@ -206,6 +207,7 @@ async def delete_after_delay(client: Client, chat_id: int, message_id: int, dela
     """Deletes a message after a specified delay."""
     await asyncio.sleep(delay)
     try:
+        # Use try/except inside the function to handle potential RPC errors or message already deleted.
         await client.delete_messages(chat_id, message_id)
         print(f"DEBUG: Deleted message {message_id} in chat {chat_id} after {delay} seconds.")
     except Exception as e:
@@ -244,11 +246,14 @@ async def get_file_details(query: str, page: int = 1, limit: int = RESULTS_PER_P
     Returns: (list of files, total count of all matching files)
     """
     # Split query into words for better matching (word-boundary searches)
-    words = [word.strip() for word in re.split(r'\W+', query) if len(query.strip()) > 2 and len(word.strip()) > 1]
+    # Ensure query is long enough to warrant tokenization
+    min_query_length = 3 
+    words = [word.strip() for word in re.split(r'\W+', query) if len(word.strip()) > 1]
     
     all_word_conditions = []
-    if words:
+    if len(query.strip()) >= min_query_length and words:
         for word in words:
+            # Use word boundaries for more accurate word matching
             word_regex = re.escape(word)
             all_word_conditions.append({
                 "$or": [
@@ -269,6 +274,7 @@ async def get_file_details(query: str, page: int = 1, limit: int = RESULTS_PER_P
 
     # Combine search conditions
     if all_word_conditions:
+        # Search either for all keywords OR the exact phrase
         search_query = {
             "$or": [
                 {"$and": all_word_conditions}, # All words must be present (high relevance)
@@ -276,7 +282,7 @@ async def get_file_details(query: str, page: int = 1, limit: int = RESULTS_PER_P
             ]
         }
     else:
-        # If the query is too short, rely only on the phrase condition
+        # If the query is too short or tokenization failed, rely only on the phrase condition
         search_query = phrase_condition
         
     # 1. Get total count first for pagination logic
@@ -550,13 +556,13 @@ async def start_command(client, message: Message):
     
     await message.reply_text(start_text)
 
-# --- NEW: REAL-TIME INDEXER FOR PRIVATE FILE STORE ---
+# --- NEW: REAL-TIME INDEXER FOR PRIVATE FILE STORE (This was already present and handles the first user request) ---
 
 @app.on_message(filters.chat(PRIVATE_FILE_STORE) & (filters.document | filters.video | filters.audio))
 async def realtime_indexer(client, message: Message):
     """
     Handles new file uploads (document, video, audio) in the PRIVATE_FILE_STORE channel 
-    and indexes them immediately into the database.
+    and indexes them immediately into the database. (ഫയൽ അപ്‌ലോഡ് ചെയ്യുമ്പോൾ തന്നെ ഓട്ടോമാറ്റിക് ഇൻഡെക്സിംഗ്)
     """
     if PRIVATE_FILE_STORE == -100:
         print("REALTIME_INDEXER: PRIVATE_FILE_STORE ID not set. Skipping indexing.")
@@ -568,6 +574,7 @@ async def realtime_indexer(client, message: Message):
     
     if success:
         file_info = get_file_details_from_message(message)
+        # Note: If logging this to a channel is desired, add it here.
         print(f"REALTIME_INDEXER: Successfully indexed message {message.id} (File ID: {file_info[0]}).")
     else:
         print(f"REALTIME_INDEXER: Failed to index message {message.id}. (No media found or DB error).")
@@ -707,7 +714,33 @@ async def global_handler(client, message: Message):
             disable_web_page_preview=True
         )
     else:
-        pass
+        # --- NEW: GOOGLE SEARCH FALLBACK (ഫയൽ കണ്ടെത്താൻ പറ്റിയില്ലെങ്കിൽ Google-ൽ തിരയാനുള്ള ബട്ടൺ) ---
+        # Safely URL encode the query string
+        encoded_query = urllib.parse.quote_plus(query)
+        google_search_url = f"https://www.google.com/search?q={encoded_query}"
+        
+        fallback_buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                text="🌐 Google-ൽ തിരയുക (Search on Google)", 
+                url=google_search_url
+            )]
+        ])
+        
+        fallback_text = (
+            f"😔 **ഫയലുകൾ കണ്ടെത്താനായില്ല** 😔\n\n"
+            f"നിങ്ങൾ തിരഞ്ഞ **'{query}'** എന്ന പേരിന് അനുയോജ്യമായ ഫയലുകൾ ഞങ്ങളുടെ ഡാറ്റാബേസിൽ ലഭ്യമല്ല.\n"
+            f"കൃത്യമായ പേര് ഉപയോഗിച്ച് വീണ്ടും ശ്രമിക്കുക, അല്ലെങ്കിൽ Google-ൽ തിരയുന്നതിനായി താഴെയുള്ള ബട്ടൺ ഉപയോഗിക്കുക."
+        )
+
+        # Send the fallback message and use a scheduled delete for cleanup (10 minutes/600 seconds)
+        sent_msg = await message.reply_text(
+            text=fallback_text,
+            reply_markup=fallback_buttons,
+            disable_web_page_preview=True
+        )
+        # Schedule deletion for the fallback message (10 minutes)
+        asyncio.create_task(delete_after_delay(client, sent_msg.chat.id, sent_msg.id, delay=600))
+        # --- END OF NEW FEATURE ---
 
 # --- CALLBACK QUERY HANDLER (PAGINATION) ---
 
@@ -836,7 +869,7 @@ if __name__ == "__main__":
     if WEBHOOK_URL_BASE:
         # Use uvicorn to serve the FastAPI app (for Render deployment)
         # CRITICAL: 'main' is used here assuming the file is named 'main.py'
-        uvicorn.run("main:api_app", host="0.0.0.0", port=PORT, log_level="info")
+        uvicorn.run("autofilter_bot:api_app", host="0.0.0.0", port=PORT, log_level="info")
     else:
         # Use app.run() for local polling mode testing
         print("Starting Pyrogram in polling mode...")
