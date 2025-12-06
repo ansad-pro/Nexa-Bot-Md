@@ -514,6 +514,29 @@ async def start_command(client, message: Message):
     
     await message.reply_text(start_text)
 
+# --- NEW: REAL-TIME INDEXER FOR PRIVATE FILE STORE ---
+
+@app.on_message(filters.chat(PRIVATE_FILE_STORE) & (filters.document | filters.video | filters.audio))
+async def realtime_indexer(client, message: Message):
+    """
+    Handles new file uploads (document, video, audio) in the PRIVATE_FILE_STORE channel 
+    and indexes them immediately into the database.
+    """
+    if PRIVATE_FILE_STORE == -100:
+        print("REALTIME_INDEXER: PRIVATE_FILE_STORE ID not set. Skipping indexing.")
+        return
+        
+    print(f"REALTIME_INDEXER: New file detected in message {message.id}. Starting single-file index.")
+    
+    # We use the bot client (app) to perform the indexing, as it is already an admin.
+    # The file object (Document/Video/Audio) is automatically present in the message.
+    success = await index_message(message)
+    
+    if success:
+        print(f"REALTIME_INDEXER: Successfully indexed message {message.id} (File ID: {get_file_info(message)[0]}).")
+    else:
+        print(f"REALTIME_INDEXER: Failed to index message {message.id}. (No media found or DB error).")
+
 # --- ADMIN COMMANDS (Indexing, etc.) ---
 
 @app.on_message(filters.command("index") & filters.user(ADMINS))
