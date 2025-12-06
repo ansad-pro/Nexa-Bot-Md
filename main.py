@@ -290,7 +290,7 @@ async def get_file_details(query: str, page: int = 1, limit: int = RESULTS_PER_P
     
     return files, total_count
 
-def get_file_info(message: Message) -> tuple[Union[str, None], Union[str, None], Union[Document, Video, Audio, None]]:
+def get_file_details_from_message(message: Message) -> tuple[Union[str, None], Union[str, None], Union[Document, Video, Audio, None]]:
     """Finds file_id, file_name, and file_object from a message."""
     if message.document and message.document.file_name:
         return message.document.file_id, message.document.file_name, message.document
@@ -309,7 +309,7 @@ async def index_message(message: Message) -> bool:
     Indexes a single file message into the database. 
     Used by both /index (when iterating) and the realtime indexer.
     """
-    file_id, file_name, file_object = get_file_info(message)
+    file_id, file_name, file_object = get_file_details_from_message(message)
     
     if not file_id:
         # No file media found in the message
@@ -421,7 +421,7 @@ async def handle_send_file(client, user_id, message_id):
         if user_client and ("MESSAGE_PROTECTED" in str(e).upper()):
             print(f"Falling back to user session forwarding for user {user_id}...")
             try:
-                # FIX: Check for 'is_connected' instead of 'is_running' for Pyrogram V2
+                # Check for 'is_connected' instead of 'is_running' for Pyrogram V2
                 if not user_client.is_connected:
                      await user_client.start()
                 
@@ -564,12 +564,11 @@ async def realtime_indexer(client, message: Message):
         
     print(f"REALTIME_INDEXER: New file detected in message {message.id}. Starting single-file index.")
     
-    # We use the bot client (app) to perform the indexing, as it is already an admin.
-    # The file object (Document/Video/Audio) is automatically present in the message.
     success = await index_message(message)
     
     if success:
-        print(f"REALTIME_INDEXER: Successfully indexed message {message.id} (File ID: {get_file_info(message)[0]}).")
+        file_info = get_file_details_from_message(message)
+        print(f"REALTIME_INDEXER: Successfully indexed message {message.id} (File ID: {file_info[0]}).")
     else:
         print(f"REALTIME_INDEXER: Failed to index message {message.id}. (No media found or DB error).")
 
@@ -579,8 +578,6 @@ async def realtime_indexer(client, message: Message):
 async def index_command(client, message: Message):
     """
     Command to index all files from the file store channel using the user session.
-    
-    FIX: Changed user_client.is_running to user_client.is_connected for Pyrogram V2.
     """
     global IS_INDEXING_RUNNING
     global user_client
@@ -605,43 +602,25 @@ async def index_command(client, message: Message):
     total_messages_processed = 0
     
     try:
-        # FIX APPLIED HERE: Using is_connected for Pyrogram V2
+        # Check and start user client
         if not user_client.is_connected: 
             await user_client.start() 
 
         # Iterate over chat history of the file store channel
         async for chat_msg in user_client.get_chat_history(chat_id=PRIVATE_FILE_STORE): 
             total_messages_processed += 1
-            file_id, file_name, file_object = get_file_info(chat_msg)
             
-            if file_id and file_name:
-                caption = chat_msg.caption.html if chat_msg.caption else None 
+            success = await index_message(chat_msg)
+            
+            if success:
+                total_files_indexed += 1
                 
-                try:
-                    await db.files_col.update_one( 
-                        {"file_id": file_id},
-                        {
-                            "$set": {
-                                "title": file_name,
-                                "caption": caption,
-                                "file_id": file_id,
-                                "chat_id": PRIVATE_FILE_STORE,
-                                "message_id": chat_msg.id,
-                                "media_type": file_object.__class__.__name__.lower()
-                            }
-                        },
-                        upsert=True
-                    )
-                    total_files_indexed += 1
-                    
-                    if total_files_indexed % 50 == 0:
-                         try:
-                             await msg.edit_text(f"✅ Indexed Files: {total_files_indexed} / {total_messages_processed}")
-                         except MessageNotModified:
-                             pass 
+                if total_files_indexed % 50 == 0:
+                     try:
+                         await msg.edit_text(f"✅ Indexed Files: {total_files_indexed} / {total_messages_processed}")
+                     except MessageNotModified:
+                         pass 
 
-                except Exception as db_error:
-                    print(f"INDEX_DEBUG: DB WRITE error for file {file_name}: {db_error}")
             
         await msg.edit_text(f"🎉 Indexing complete! Total {total_files_indexed} files added or updated. ({total_messages_processed} messages checked)")
         
@@ -663,32 +642,39 @@ async def dbcount_command(client, message: Message):
 # Auto-filter and Copyright Handler (Global)
 @app.on_message(filters.text & filters.incoming & ~filters.command(["start", "index", "dbcount"])) 
 async def global_handler(client, message: Message):
-    """Handles all incoming text messages: copyright deletion and auto-filter search."""
+    """
+    Handles all incoming text messages: copyright deletion and auto-filter search.
+    Note: Safely handles messages without a sender (e.g., channel posts).
+    """
     query = message.text.strip()
     chat_id = message.chat.id
     chat_type = message.chat.type
     
-    if IS_INDEXING_RUNNING:
-        if message.from_user.id in ADMINS:
-            await message.reply_text("Indexing is running. Please try again when the process is complete.")
-        return
+    # --- SAFETY CHECK: Safely get the sender's ID, which is necessary for admin checks. ---
+    sender_id = message.from_user.id if message.from_user else None
     
-    # --- 1. COPYRIGHT MESSAGE DELETION LOGIC ---
+    # --- 1. Handle Indexing Running status ---
+    if IS_INDEXING_RUNNING:
+        # Only reply to the admin who tried to search during indexing
+        if sender_id in ADMINS: 
+            await message.reply_text("Indexing is running. Please try again when the process is complete.")
+        return # Always stop processing if indexing is running
+    
+    # --- 2. COPYRIGHT MESSAGE DELETION LOGIC (Only targets the Private File Store) ---
     COPYRIGHT_KEYWORDS = ["copyright", "unauthorized", "DMCA", "piracy"] 
     is_copyright_message = any(keyword.lower() in query.lower() for keyword in COPYRIGHT_KEYWORDS)
-    is_protected_chat = chat_id == PRIVATE_FILE_STORE or chat_id in ADMINS
     
-    if is_copyright_message and is_protected_chat:
+    if is_copyright_message and chat_id == PRIVATE_FILE_STORE:
         try:
             await message.delete()
             # Send notification to the LOG_CHANNEL
-            await client.send_message(LOG_CHANNEL, f"🚫 **Copyright message deleted!**\n\n**Chat ID:** `{chat_id}`\n**User:** {message.from_user.mention}\n**Message:** `{query}`")
+            await client.send_message(LOG_CHANNEL, f"🚫 **Copyright message deleted!**\n\n**Chat ID:** `{chat_id}`\n**User:** {message.from_user.mention if message.from_user else 'Channel/Anonymous'}\n**Message:** `{query}`")
             return
         except Exception as e:
             print(f"Error deleting copyright message in chat {chat_id}: {e}")
             return
             
-    # --- 2. AUTO-FILTER SEARCH (ONLY IN GROUPS/CHANNELS) ---
+    # --- 3. AUTO-FILTER SEARCH (ONLY IN GROUPS/CHANNELS) ---
     
     if chat_type == ChatType.PRIVATE:
         await message.reply_text("👋 To search for files, please go to a group or channel where I am an admin and type the name. Click the button there to get the file here.")
@@ -866,3 +852,4 @@ if __name__ == "__main__":
             await app.stop()
         
         asyncio.run(start_polling())
+
