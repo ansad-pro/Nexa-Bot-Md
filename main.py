@@ -25,11 +25,12 @@ BOT_USERNAME: str = "" # To be set on startup
 RESULTS_PER_PAGE = 10 # Define the pagination limit
 
 # --- CUSTOM CAPTION FOR SENT FILES (A custom caption for files delivered in DM) ---
+# Translated custom caption to English equivalent
 NEW_CAPTION = (
     "°•➤@Mala_Television 🍿\n"
     "°•➤@Mala_Tv\n"
     "°•➤@MalaTvbot ™️\n\n"
-    "🙂🙂"
+    "Enjoy! 🙂🙂"
 )
 
 # --- CONFIG VARIABLES ---
@@ -99,7 +100,7 @@ class Database:
             {"_id": "start_count"},
             {"$inc": {"count": 1}},
             upsert=True,
-            return_document=True # Returns the updated document
+            return_document="after" # Returns the updated document
         )
         # Ensure count is returned, defaulting to 1 if it's the very first start
         return result.get("count", 1) 
@@ -425,13 +426,15 @@ async def handle_send_file(client, user_id, message_id):
         
         # --- 2. FALLBACK: Attempt to Forward using User Session (for protected content) ---
         global user_client
-        if user_client and ("MESSAGE_PROTECTED" in str(e).upper()):
+        # Check if the error is likely due to protected content
+        if user_client and ("MESSAGE_PROTECTED" in str(e).upper() or "CANT_COPY" in str(e).upper()):
             print(f"Falling back to user session forwarding for user {user_id}...")
             try:
                 # Check for 'is_connected' instead of 'is_running' for Pyrogram V2
                 if not user_client.is_connected:
                      await user_client.start()
                 
+                # Use user_client to forward the message
                 sent_msgs: List[Message] = await user_client.forward_messages(
                     chat_id=user_id, 
                     from_chat_id=file['chat_id'], 
@@ -538,7 +541,7 @@ async def start_command(client, message: Message):
                 await message.reply_text("❌ File delivery failed. The link might be broken. Please click the button in the group again.")
                 return
 
-    # Standard /start message
+    # Standard /start message (Translated from Malayalam)
     start_text = (
         "Hi! I am your **Auto Filter Bot.** 🤩\n\n"
         "🔎 **How to use me?**\n"
@@ -836,36 +839,36 @@ async def redirect_to_dm_handler(client, callback):
             [InlineKeyboardButton("✅ Subscribed, Click Here!", callback_data=original_callback_data)] 
         ]
         
-        await callback.answer("✋ ഫയൽ ലഭിക്കാൻ ചാനലിൽ ജോയിൻ ചെയ്യുക.", show_alert=True)
+        # Malayalam: "✋ ഫയൽ ലഭിക്കാൻ ചാനലിൽ ജോയിൻ ചെയ്യുക." -> "✋ Please join the channel to get the file."
+        await callback.answer("✋ Please join the channel to get the file.", show_alert=True)
         
-        # Modify the message to show the Join button.
+        # Malayalam: "🔑 നിർബന്ധിത അംഗത്വം: നിങ്ങൾ ഞങ്ങളുടെ ചാനലിൽ ജോയിൻ ചെയ്യണം.\n\n"
+        # "1. Join Channel ബട്ടൺ ക്ലിക്ക് ചെയ്ത് ജോയിൻ ചെയ്യുക.\n"
+        # "2. ചാനലിൽ ജോയിൻ ചെയ്ത ശേഷം, താഴെയുള്ള ✅ Subscribed, Click Here! എന്ന ബട്ടൺ ക്ലിക്ക് ചെയ്യുക."
         await callback.message.edit_text(
-            "🔑 **നിർബന്ധിത അംഗത്വം:** നിങ്ങൾ ഞങ്ങളുടെ ചാനലിൽ ജോയിൻ ചെയ്യണം.\n\n"
-            "1. **Join Channel** ബട്ടൺ ക്ലിക്ക് ചെയ്ത് ജോയിൻ ചെയ്യുക.\n"
-            "2. ചാനലിൽ ജോയിൻ ചെയ്ത ശേഷം, താഴെയുള്ള **✅ Subscribed, Click Here!** എന്ന ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.",
+            "🔑 **Mandatory Subscription:** You must join our channel.\n\n"
+            "1. Click the **Join Channel** button and join.\n"
+            "2. After joining, click the **✅ Subscribed, Click Here!** button below.",
             reply_markup=InlineKeyboardMarkup(join_button)
         )
         return 
         
     # 2. SUBSCRIBED / NO FORCE SUB / ADMIN: Direct Redirection
     
-    # Answer the callback with the deep link URL. This instantly redirects the user to the DM.
-    try:
-        await callback.answer(
-            text="🔑 DM-ലേക്ക് റീഡയറക്ട് ചെയ്യുന്നു... അവിടെ /start മെസ്സേജിൽ Send അമർത്തുക.", 
-            show_alert=False,
-            url=deep_link # <-- CRITICAL: Direct redirection via URL
-        )
-    except Exception as e:
-        print(f"Error answering callback with URL: {e}")
-        await callback.answer("❌ Failed to redirect to DM. Please try again.", show_alert=True)
-        return
+    # Malayalam: "🔑 DM-ലേക്ക് റീഡയറക്ട് ചെയ്യുന്നു... അവിടെ /start മെസ്സേജിൽ Send അമർത്തുക." 
+    await callback.answer(
+        text="🔑 Redirecting to DM... Please press 'Send' on the /start message there.", 
+        show_alert=False,
+        url=deep_link # <-- CRITICAL: Direct redirection via URL
+    )
     
     # Update the group message to confirm the action, BUT RETAIN THE BUTTONS.
     try:
+        # Malayalam: "✅ DM-ലേക്ക് പോയി:\n\n"
+        # "ദയവായി ബോട്ടിൻ്റെ പ്രൈവറ്റ് ചാറ്റിലേക്ക് പോയി Send ബട്ടൺ അമർത്തുക. ഫയൽ ഉടൻ അയക്കുന്നതാണ്. (ഫയൽ 60 സെക്കൻഡിനുള്ളിൽ ഡിലീറ്റ് ചെയ്യും)"
         await callback.message.edit_text(
-            "✅ **DM-ലേക്ക് പോയി:**\n\n"
-            "ദയവായി ബോട്ടിൻ്റെ പ്രൈവറ്റ് ചാറ്റിലേക്ക് പോയി **Send** ബട്ടൺ അമർത്തുക. ഫയൽ ഉടൻ അയക്കുന്നതാണ്. (ഫയൽ 60 സെക്കൻഡിനുള്ളിൽ ഡിലീറ്റ് ചെയ്യും)",
+            "✅ **Redirected to DM:**\n\n"
+            "Please go to the bot's private chat and press the **Send** button. The file will be delivered shortly. (The file will be deleted in 60 seconds)",
             # Do NOT pass reply_markup=None. This preserves the existing pagination/file buttons.
         )
     except Exception as e:
@@ -892,7 +895,4 @@ if __name__ == "__main__":
                  await user_client.stop()
             await app.stop()
         
-        # NOTE: If you are using Python 3.13, you might encounter the 'asyncio.run' error.
-        # It is recommended to use Python 3.12 or use the app.run() method from Pyrogram
-        # as suggested in the previous response, but keeping the original code structure here.
         asyncio.run(start_polling())
