@@ -8,9 +8,9 @@
     "start": "node main.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@whiskeysockets/baileys": "^7.0.0.9",
     "@adiwajshing/keyed-db": "latest",
-    "axios": "^1.6.2",
+    "axios": "latest",
     "pino": "latest",
     "fs-extra": "latest",
     "express": "latest",
