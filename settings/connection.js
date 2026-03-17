@@ -74,24 +74,24 @@ sock.end(`Unknown DisconnectReason: ${reason}`)
 
    try {
 
-    const imagePath = './media/thumb.jpg'
+    const imagePath = './media/image.jpg'
 
-if(fs.existsSync(imagePath)){
+   if(fs.existsSync(imagePath)){
 
-await sock.sendMessage(myNumber,{
-image: fs.readFileSync(imagePath),
-caption: activeMsg,
+     await sock.sendMessage(myNumber,{
+    image: fs.readFileSync(imagePath),
+      caption: activeMsg,
 
-contextInfo:{
-mentionedJid:[myNumber],
-isForwarded:true,
-forwardingScore:999,
+       contextInfo:{
+      mentionedJid:[myNumber],
+       isForwarded:true,
+       forwardingScore:999,
 
-forwardedNewsletterMessageInfo:{
-newsletterJid:'120363422992896382@newsletter',
-newsletterName:'Nexa-Bot',
-serverMessageId:143
-},
+     forwardedNewsletterMessageInfo:{
+     newsletterJid:'120363422992896382@newsletter',
+    newsletterName:'Nexa-Bot',
+    serverMessageId:143
+   },
 
       externalAdReply:{
       title:'Nexa-Bot ACTIVE',
@@ -100,40 +100,36 @@ serverMessageId:143
       sourceUrl:'https://whatsapp.com/channel/0029VbB59W9GehENxhoI5l24',
       mediaType:1,
       renderLargerThumbnail:true
-}
+       }
 
-}
+     }
 
-})
+  })
 
 }
 
 }catch(err){
 console.log("❌ Error sending owner message",err)
-}
+       }
 
-}
+    }
 
-})
+  })
 
-/* -------- Save Session -------- */
+           sock.ev.on('creds.update', saveCreds)
 
-sock.ev.on('creds.update', saveCreds)
+          sock.ev.on('messages.upsert', async ({ messages }) => {
 
-/* -------- Message Listener -------- */
+          const msg = messages[0]
 
-sock.ev.on('messages.upsert', async ({ messages }) => {
+           if(!msg.message) return
 
-const msg = messages[0]
+           const sender = msg.key.remoteJid
 
-if(!msg.message) return
+          console.log("📩 Message From :", sender)
 
-const sender = msg.key.remoteJid
+      })
 
-console.log("📩 Message From :", sender)
-
-})
-
-}
+   }
 
 export default connection
