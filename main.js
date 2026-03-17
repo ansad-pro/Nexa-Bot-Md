@@ -12,7 +12,6 @@ import express from "express";
 import config from "./config.js"; 
 import connectionHandler from "./settings/connection.js";
 import messageHandler from "./message.js";
-
 const sessionPath = "./session";
 const sessionData = process.env.SESSION_ID;
 
@@ -58,9 +57,10 @@ async function startNexa() {
         const code = await sock.requestPairingCode(phoneNumber.replace(/[^0-9]/g, ""));
         console.log(`\n🗝 Pairing Code: ${code}\n`);
     }
-
+    
+     //connection 
     connectionHandler(sock, startNexa, saveCreds);
-
+     //message 
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         await messageHandler(sock, chatUpdate);
     });
