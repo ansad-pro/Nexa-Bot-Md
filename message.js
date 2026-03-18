@@ -11,21 +11,21 @@ try {
 const msg = chatUpdate.messages?.[0];
 if (!msg || !msg.message || msg.key.remoteJid === "status@broadcast") return;
 
-const from = msg.key.remoteJid;    
+    const from = msg.key.remoteJid;    
     const sender = msg.key.participant || msg.key.remoteJid;    
     const isOwner = config.OWNER_NUMBER.includes(sender.split('@')[0]) || msg.key.fromMe;
 
-// mention sticker
-const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-if (mentions.length > 5) {
-const stickerPath = './media/sticker.webp';
-if (fs.existsSync(stickerPath)) {
-await sock.sendMessage(from, {
-sticker: fs.readFileSync(stickerPath)
-}, { quoted: msg });
-return;
-}
-}
+   // mention sticker
+    const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+ if (mentions.length > 5) {
+    const stickerPath = './media/sticker.webp';
+ if (fs.existsSync(stickerPath)) {
+       await sock.sendMessage(from, {
+       sticker: fs.readFileSync(stickerPath)
+     }, { quoted: msg });
+     return;
+    }
+  }
 
    // Parse Message    
     const { isCmd, commandName, args } = parseMessage(msg);    
