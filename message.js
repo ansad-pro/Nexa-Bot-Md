@@ -1,47 +1,55 @@
 import path from "path";
 import { pathToFileURL } from "url";
 import fs from "fs";
-import { getToggles, saveToggles } from "./lib/toggles.js";
+import { getToggles } from "./lib/toggles.js";
 import { parseMessage } from "./lib/msgHelper.js";
-import { checkMode } from "./lib/mode.js";
 import { executeCommand } from "./lib/loader.js";
 import config from "./config.js";
 
 export default async (sock, chatUpdate) => {
-    try {
-        const msg = chatUpdate.messages?.[0];
-        if (!msg || !msg.message || msg.key.remoteJid === "status@broadcast") return;
+try {
+const msg = chatUpdate.messages?.[0];
+if (!msg || !msg.message || msg.key.remoteJid === "status@broadcast") return;
 
-        const from = msg.key.remoteJid;
-        const sender = msg.key.participant || msg.key.remoteJid;
-        const toggles = getToggles();
+const from = msg.key.remoteJid;    
+    const sender = msg.key.participant || msg.key.remoteJid;    
+    const isOwner = config.OWNER_NUMBER.includes(sender.split('@')[0]) || msg.key.fromMe;
 
-        // Parse Message 
-        const { body, text, isCmd, commandName, args } = parseMessage(msg);
-        
-        //  Mode Check
-        if (!checkMode(sender, toggles)) return;
+// mention sticker
+const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+if (mentions.length > 5) {
+const stickerPath = './media/sticker.webp';
+if (fs.existsSync(stickerPath)) {
+await sock.sendMessage(from, {
+sticker: fs.readFileSync(stickerPath)
+}, { quoted: msg });
+return;
+}
+}
 
-        //  Mode Command handling
-        if (commandName === "mode") {
-            const isOwner = config.OWNER_NUMBER.includes(sender.split('@')[0]);
-            if (!isOwner) return; 
+   // Parse Message    
+    const { isCmd, commandName, args } = parseMessage(msg);    
 
-            const newMode = args[0]?.toLowerCase();
-            if (newMode === "public" || newMode === "private") {
-                if (!toggles.global) toggles.global = {};
-                toggles.global.mode = newMode;
-                saveToggles(toggles);
-                return await sock.sendMessage(from, { text: `✅ Mode: *${newMode}*` }, { quoted: msg });
-            }
-        }
+    if (!isCmd || !commandName) return;    
 
-        if (!isCmd) return;
+    // Get Toggles   
+    const toggles = getToggles();    
 
-        //  Command Execution (Loader)
-         await executeCommand(commandName, sock, msg, args, { toggles });
-                
-    } catch (err) {
-        console.error("Message Error:", err);
-    }
+    // Command OFF check   
+    if (toggles[commandName]?.status === "off") return;    
+
+    // Global Private Mode Check   
+    if (global.isPublic === false && !msg.key.fromMe) return;  
+
+    //  Specific Command Private Check   
+    if (toggles[commandName]?.mode === "private" && !msg.key.fromMe) {  
+        return await sock.sendMessage(from, { text: "🔒 owner only." });  
+    }  
+
+    //  Execute Command  
+   await executeCommand(commandName, sock, msg, args, { toggles, isOwner });
+
+} catch (err) {    
+    console.error("❌ Message Error:", err);    
+  }
 };
