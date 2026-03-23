@@ -45,9 +45,15 @@ export default async (sock, chatUpdate) => {
             return await sock.sendMessage(from, { text: "🔒 This command is for my Owner only." });  
         }  
 
-        // 8. Execute Command  
-        await executeCommand(commandName, sock, msg, args, { toggles, isOwner });
-
+           // 8.Manual loader 
+        if (isCmd && commandName) {
+            if (!from.endsWith('@lid')) {
+                await sock.sendPresenceUpdate('composing', from);
+            }
+            
+            await handleCommands(commandName, sock, msg, args, { isOwner, isAdmin });
+        }
+        
     } catch (err) {    
         console.error("❌ Message Error:", err);    
     }
