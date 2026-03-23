@@ -1,5 +1,7 @@
-import stickerHandler from '../commands/sticker.js';
+import menuHandler from '../commands/menu.js';
 import aliveHandler from '../commands/alive.js';
+import pingHandler from '../commands/ping.js';
+import urlHandler from '../commands/url.js';
 
 export default async (commandName, sock, msg, args, extra) => {
     const { isOwner, isAdmin } = extra;
