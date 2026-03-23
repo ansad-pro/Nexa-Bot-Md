@@ -1,5 +1,6 @@
 // © 2026 arun•°Cumar. All Rights Reserved.
-import fs from 'fs'  
+import fs from 'fs' 
+import config from "./config.js";
 import { DisconnectReason } from '@whiskeysockets/baileys'
 const connection = async (sock, startNexa, saveCreds) => {
 
