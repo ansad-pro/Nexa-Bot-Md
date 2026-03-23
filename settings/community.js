@@ -1,3 +1,4 @@
+// © 2026 arun•°Cumar. All Rights Reserved.
 export function handleOwnerEvents(sock) {
     let hasJoined = false;
 
