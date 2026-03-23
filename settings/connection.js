@@ -1,3 +1,4 @@
+// © 2026 arun•°Cumar. All Rights Reserved.
 import fs from 'fs'  
 import { DisconnectReason } from '@whiskeysockets/baileys'
 const connection = async (sock, startNexa, saveCreds) => {
