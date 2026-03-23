@@ -1,49 +1,43 @@
 import fs from 'fs';
 import config from '../config.js';
 import os from 'os';
+import { aliveStyles } from '../lib/aliveStyles.js'; 
 
-export default async (sock, msg, args, extra) => {
+export default async (sock, msg, args) => {
     const chat = msg.key.remoteJid;
     try {
         await sock.sendMessage(chat, { react: { text: '💚', key: msg.key } });
 
-        const uptime = process.uptime();
-        const hrs  = Math.floor(uptime / 3600);
-        const mins = Math.floor((uptime % 3600) / 60);
-        const secs = Math.floor(uptime % 60);
+        // Uptime & RAM Calculation
+        const uptimeSeconds = process.uptime();
+        const hrs = Math.floor(uptimeSeconds / 3600);
+        const mins = Math.floor((uptimeSeconds % 3600) / 60);
+        const uptime = `${hrs}h ${mins}m`;
 
-        const ramTotal = (os.totalmem() / 1024 / 1024).toFixed(0);
-        const ramFree  = (os.freemem()  / 1024 / 1024).toFixed(0);
-        const ramUsed  = (ramTotal - ramFree).toFixed(0);
+        const ram = `${(os.totalmem() - os.freemem()) / 1024 / 1024 | 0}MB / ${os.totalmem() / 1024 / 1024 | 0}MB`;
 
-        const aliveText =
-`╭━━〔 *✅ NEXA-BOT ALIVE* 〕━━╮
-┃
-┃  🤖 *Bot:* ${config.BOT_NAME}
-┃  👤 *Owner:* ${config.OWNER_NAME.join(' & ')}
-┃  🔖 *Prefix:* [ ${config.PREFIX} ]
-┃  🌐 *Status:* Online
-┃
-┃  ⏱️ *Uptime:* ${hrs}h ${mins}m ${secs}s
-┃  💾 *RAM Used:* ${ramUsed} MB / ${ramTotal} MB
-┃  📱 *Platform:* ${os.platform()} ${os.arch()}
-┃
-╰━━━━━━━━━━━━━━━━━━━━━╯
 
-> 🚀 Nexa-Bot MD v2.0 is running!`;
+        const styleData = {
+            botName: config.BOT_NAME,
+            owner: config.OWNER_NAME[0],
+            prefix: config.PREFIX,
+            uptime: uptime,
+            ram: ram,
+            platform: os.platform()
+        };
+
+        const aliveText = aliveStyles(styleData);
 
         const imagePath = './media/nexa.jpg';
-
         if (fs.existsSync(imagePath)) {
             await sock.sendMessage(chat, {
                 image: fs.readFileSync(imagePath),
-                caption: aliveText
+                caption: aliveText + "\n\n> 🚀 Nexa-Bot MD v2.0"
             }, { quoted: msg });
         } else {
             await sock.sendMessage(chat, { text: aliveText }, { quoted: msg });
         }
     } catch (e) {
         console.error('Alive Error:', e);
-        await sock.sendMessage(chat, { text: '❌ Error checking alive status.' });
     }
 };
