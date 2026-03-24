@@ -22,7 +22,10 @@ export default async (commandName, sock, msg, args, extra) => {
      else if (commandName === 'url') {
         await urlHandler(sock, msg);
     }
-         
+
+        await sock.sendMessage(from, { text: "Nexa-Bot-MD is Online! ⚡" }, { quoted: fquoted.channel });
+    }
+
     else {
         
         console.log(`Unknown command: ${commandName}`);
