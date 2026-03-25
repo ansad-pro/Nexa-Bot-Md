@@ -5,10 +5,11 @@ import { toSticker } from '../lib/emix.js';
 export default async (sock, msg) => {
     const from = msg.key.remoteJid;
     
-    const type = Object.keys(msg.message)[0];
-    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const quotedType = quoted ? Object.keys(quoted)[0] : null;
 
+    const type = Object.keys(msg.message || {})[0];
+    const quoted = msg.message?.[type]?.contextInfo?.quotedMessage;
+    const quotedType = quoted ? Object.keys(quoted)[0] : null;
+    
     const isImage = type === 'imageMessage' || quotedType === 'imageMessage';
     const isVideo = type === 'videoMessage' || quotedType === 'videoMessage';
 
@@ -16,27 +17,25 @@ export default async (sock, msg) => {
         try {
             await sock.sendMessage(from, { text: '⏳ Creating sticker...' });
 
-            const mediaMsg = isImage ? 
-                (msg.message?.imageMessage || quoted?.imageMessage) : 
-                (msg.message?.videoMessage || quoted?.videoMessage);
+            const mediaObj = quoted ? quoted[quotedType] : msg.message[type];
+            const mediaType = isImage ? 'image' : 'video';
+            const ext = isImage ? 'jpg' : 'mp4'; 
 
-            const stream = await downloadContentFromMessage(mediaMsg, isImage ? 'image' : 'video');
+            const stream = await downloadContentFromMessage(mediaObj, mediaType);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            const sticker = await toSticker(buffer, isVideo); 
+            const sticker = await toSticker(buffer, ext); 
 
             await sock.sendMessage(from, { sticker: sticker });
 
         } catch (err) {
             console.error("Sticker Error:", err);
-            await sock.sendMessage(from, { text: '❌ Error: Video length might be too long or limit exceeded.' });
+            await sock.sendMessage(from, { text: '❌ Error: Failed to process media.' });
         }
     } else {
         await sock.sendMessage(from, { text: '❌ Please reply to an image or short video with .sticker' });
     }
 };
-
-
