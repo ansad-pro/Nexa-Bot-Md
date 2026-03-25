@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import readline from "readline";
 import express from "express";
-import { handlePairing } from "./settings/session.js";
+import { handleSession } from "./settings/session.js";
 import { handleOwnerEvents } from "./settings/community.js";
 import connectionHandler from "./settings/connection.js";
 import messageHandler from "./message.js";
