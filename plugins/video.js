@@ -1,3 +1,4 @@
+// © 2026 arun•°Cumar. All Rights Reserved.
 import { downloadYt, ytSearch } from '../lib/yt.js';
 import fs from 'fs';
 
