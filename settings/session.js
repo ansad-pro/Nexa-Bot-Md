@@ -9,7 +9,7 @@ const rl = readline.createInterface({
 
 const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
-export async function handlePairing(sock) {
+export async function handleSession(sock) {
     console.clear();
     console.log(chalk.redBright(`
 ╔════════════════════╗
