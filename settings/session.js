@@ -16,8 +16,8 @@ export async function handleSession(sock) {
 
     console.log(chalk.cyan(`
 ╔${'═'.repeat(46)}╗
-║ 🚀 NEXA BOT SYSTEM  ║
-║ Developed by arun•°Cumar ║
+║              🚀 NEXA BOT SYSTEM              ║
+║           Developed by arun•°Cumar           ║
 ╚${'═'.repeat(46)}╝
 `));
 
@@ -43,9 +43,9 @@ export async function handleSession(sock) {
 
             console.log(chalk.greenBright(`
 ╔${'═'.repeat(46)}╗
-║ 🗝 YOUR PAIRING Code ║
+║               🗝 YOUR PAIRING CODE            ║
 ╠${'═'.repeat(46)}╣
-║   ${code}       ║
+║                    ${code}                    ║
 ╚${'═'.repeat(46)}╝
 `));
 
