@@ -4,7 +4,7 @@ import { pathToFileURL } from "url";
 import fs from "fs";
 import { getToggles } from "./lib/toggles.js";
 import { parseMessage } from "./settings/msgHelper.js";
-import { executeCommand } from "./settings/loader.js";
+import { handleCommands } from "./settings/loader.js";
 import config from "./config.js";
 
 export default async (sock, chatUpdate) => {
