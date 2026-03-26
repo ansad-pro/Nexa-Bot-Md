@@ -6,7 +6,9 @@ import aliveHandler from '../plugins/alive.js';
 import pingHandler from '../plugins/ping.js';  
 import urlHandler from '../plugins/url.js';  
 import stickerHandler from '../plugins/sticker.js';  
-  
+import videoHandler from '../plugins/video.js';  
+import playHandler from '../plugins/play.js';  
+
 export async function handleCommands(commandName, sock, msg, args, extra) {  
     const { isOwner, isAdmin } = extra;  
   
@@ -42,6 +44,15 @@ export async function handleCommands(commandName, sock, msg, args, extra) {
             await stickerHandler(sock, msg, args, { isOwner, isAdmin, quoted });
             break;
 
+        case 'video':
+            await videoHandler(sock, msg, args, { isOwner, isAdmin, quoted });
+            break;
+
+        case 'play':
+        case 'song':
+            await playHandler(sock, msg, args, { isOwner, isAdmin, quoted });
+            break;
+        
         default:
             console.log(`Unknown command: ${commandName}`);
             break;
