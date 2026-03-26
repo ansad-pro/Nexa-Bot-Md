@@ -61,32 +61,6 @@ export default async (sock, msg, args) => {
             .replace('{prefix}', config.PREFIX)
             .replace('{commands}', commandList);
 
-        // Interactive Buttons
-        const buttons = [
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "⚡ Ping",
-                    id: `${config.PREFIX}ping`
-                })
-            },
-            {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({
-                    display_text: "🟢 Alive",
-                    id: `${config.PREFIX}alive`
-            
-                })
-            }
-        ];
-
-        // Send Interactive Menu
-        await sendInteractiveMessage(sock, from, {
-            text: menuText,
-            footer: `© ${config.BOT_NAME}`,
-            buttons: buttons
-        }, { quoted: msg });
-
     } catch (err) {
         console.log("Menu Error:", err);
     }
