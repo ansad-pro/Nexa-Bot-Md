@@ -7,6 +7,7 @@ import urlHandler from '../plugins/url.js';
 import stickerHandler from '../plugins/sticker.js';  
 import videoHandler from '../plugins/video.js';  
 import playHandler from '../plugins/play.js';  
+import tagallHandler from '../plugins/tagall.js';
 
 export async function handleCommands(commandName, sock, msg, args, extra) {  
     const { isOwner, isAdmin } = extra;  
@@ -48,7 +49,11 @@ export async function handleCommands(commandName, sock, msg, args, extra) {
         case 'song':
             await playHandler(sock, msg, args, { isOwner, isAdmin });
             break;
-        
+
+        case 'tagall':
+            await tagallpHandler(sock, msg, args, { isOwner, isAdmin });
+            break;
+            
         default:
             console.log(`Unknown command: ${commandName}`);
             break;
