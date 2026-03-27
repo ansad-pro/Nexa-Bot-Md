@@ -1,6 +1,6 @@
 // © 2026 arun•°Cumar. All Rights Reserved.
 import fs from 'fs';
-import config from "../config.js";
+import config from "../../config.js";
 import { DisconnectReason } from '@whiskeysockets/baileys';
 
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
