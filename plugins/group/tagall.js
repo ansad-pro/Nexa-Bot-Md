@@ -1,6 +1,6 @@
 // © 2026 arun•°Cumar. All Rights Reserved.
 
-import { checkAdmin } from '../settings/check.js';
+import { checkAdmin } from '../../settings/check.js';
 
 export default async function tagAll(sock, msg, args) {
     const chatId = msg.key.remoteJid;
