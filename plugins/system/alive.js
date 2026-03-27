@@ -1,7 +1,7 @@
 import fs from 'fs';
-import config from '../config.js';
+import config from '../../config.js';
 import os from 'os';
-import { aliveStyles } from '../lib/alive.js'; 
+import { aliveStyles } from '../../lib/alive.js'; 
 
 export default async (sock, msg, args) => {
     const chat = msg.key.remoteJid;
@@ -28,7 +28,7 @@ export default async (sock, msg, args) => {
 
         const aliveText = aliveStyles(styleData);
 
-        const imagePath = './media/nexa.jpg';
+        const imagePath = '../../media/nexa.jpg';
         if (fs.existsSync(imagePath)) {
             await sock.sendMessage(chat, {
                 image: fs.readFileSync(imagePath),
