@@ -5,11 +5,11 @@ import aliveHandler from '../plugins/system/alive.js';
 import pingHandler from '../plugins/system/ping.js';
 import uptimeHandler from '../plugins/system/uptime.js';
 import urlHandler from '../plugins/download/url.js';
-import stickerHandler from '../plugins/download/sticker.js';
+import stickerHandler from '../plugins/edit/sticker.js';
 import videoHandler from '../plugins/download/video.js';
 import playHandler from '../plugins/download/play.js';
 import tagallHandler from '../plugins/group/tagall.js';
-import mathHandler from '../plugins/tools/math.js';
+import mathHandler from '../plugins/genaral/math.js';
 import restartHandler from '../plugins/system/restart.js';
 
 // map
