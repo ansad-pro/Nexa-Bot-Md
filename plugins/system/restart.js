@@ -1,5 +1,5 @@
 // © 2026 arun•°Cumar. All Rights Reserved.
-import { checkOwner } from '../../Settings/check.js';
+import { checkOwner } from '../../settings/check.js';
 
 export default async (sock, msg, args) => {
     try {
