@@ -12,6 +12,8 @@ import tagallHandler from '../plugins/group/tagall.js';
 import mathHandler from '../plugins/genaral/math.js';
 import restartHandler from '../plugins/system/restart.js';
 import prefixHandler from '../plugins/system/prefix.js';
+import vvHandler from '../plugins/utility/vv.js';
+
 
 // map
 const commands = {
@@ -35,7 +37,9 @@ const commands = {
     restart: restartHandler,
     update: restartHandler,
     prefix: prefixHandler,
-    setprefix: prefixHandler 
+    setprefix: prefixHandler,
+    vv: vvHandler,
+    viewOnce: vvHandler 
 };
 
 // handler
