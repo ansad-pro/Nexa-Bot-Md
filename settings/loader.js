@@ -11,6 +11,7 @@ import playHandler from '../plugins/download/play.js';
 import tagallHandler from '../plugins/group/tagall.js';
 import mathHandler from '../plugins/genaral/math.js';
 import restartHandler from '../plugins/system/restart.js';
+import prefixHandler from '../plugins/system/prefix.js';
 
 // map
 const commands = {
@@ -32,7 +33,9 @@ const commands = {
     math: mathHandler,
     calculate: mathHandler,
     restart: restartHandler,
-    update: restartHandler
+    update: restartHandler,
+    prefix: prefixHandler,
+    setprefix: prefixHandler 
 };
 
 // handler
