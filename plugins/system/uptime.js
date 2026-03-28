@@ -12,7 +12,7 @@ export default async (sock, msg) => {
 
         // Random Design
         const design = timeDesigns[Math.floor(Math.random() * timeDesigns.length)];
-
+        const imagePath = path.join(__dirname, '../../media/nexa.jpg');
         const timeText = design
             .replace('{user}', user)
             .replace('{uptime}', uptime)
@@ -20,7 +20,7 @@ export default async (sock, msg) => {
             .replace('{time}', time);
 
         await sock.sendMessage(from, {
-            image: fs.readFileSync('../../media/nexa.jpg'),
+            image: fs.readFileSync(imagePath),
             caption: timeText
         }, { quoted: msg });
 
