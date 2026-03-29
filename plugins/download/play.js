@@ -19,23 +19,33 @@ export default async (sock, msg, args) => {
         const data = await ytPlay(query);
 
         const title = data.title || "Unknown";
-        const videoUrl = data.video || data.videoUrl || data.url;
-        const audioUrl = data.audio || data.audioUrl;
+        const audioUrl = data.audio;
+        const videoUrl = data.video;
 
-        let caption = `🎵 *${title}*\n\n⬇️ Downloaded via Nexa-Bot`;
+        // Send thumbnail first
+        if (data.thumbnail) {
+            await sock.sendMessage(from, {
+                image: { url: data.thumbnail },
+                caption: `🎵 *${title}*\n\nDownloading...`
+            }, { quoted: msg });
+        }
 
+        // Send audio
         if (audioUrl) {
             await sock.sendMessage(from, {
                 audio: { url: audioUrl },
                 mimetype: 'audio/mpeg'
             }, { quoted: msg });
-        } else if (videoUrl) {
+        } 
+        // If no audio send video
+        else if (videoUrl) {
             await sock.sendMessage(from, {
                 video: { url: videoUrl },
-                caption: caption
+                caption: `🎬 *${title}*`
             }, { quoted: msg });
-        } else {
-            throw new Error("No media URL found");
+        } 
+        else {
+            throw new Error("No media found");
         }
 
     } catch (e) {
