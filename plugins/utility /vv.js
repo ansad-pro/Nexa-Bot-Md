@@ -1,41 +1,45 @@
-import { downloadContentFromMessage } from '@whiskeysockets/baileys'; 
+// © 2026 arun•°Cumar
+import { downloadMedia } from '../../lib/store/download.js';
 import { toViewOncePhoto, toViewOnceVideo, toViewOnceVoice } from '../../lib/store/emix.js';
 
-export default async (sock, msg, { from, quoted, body }) => {
+export default async (sock, msg, args) => {
+    const from = msg.key.remoteJid;
+
     try {
-        if (!quoted) return sock.sendMessage(from, { text: ".vv reply view once message" }, { quoted: msg });
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-        const mimeType = Object.keys(quoted.message)[0];
-        const isImage = mimeType === 'imageMessage';
-        const isVideo = mimeType === 'videoMessage';
-        const isAudio = mimeType === 'audioMessage';
-
-        if (!isImage && !isVideo && !isAudio) {
-            return sock.sendMessage(from, { text: " Unsupported!" }, { quoted: msg });
+        if (!quoted) {
+            return sock.sendMessage(from, {
+                text: "📌 Reply to a media message"
+            }, { quoted: msg });
         }
 
-        const messageType = mimeType.split('Message')[0];
-        const stream = await downloadContentFromMessage(quoted.message[mimeType], messageType);
-        let buffer = Buffer.from([]);
-        for await (const chunk of stream) {
-            buffer = Buffer.concat([buffer, chunk]);
-        }
+        // download media using helper
+        const { buffer, type, msgContent } = await downloadMedia(quoted);
 
-        const caption = quoted.message[mimeType]?.caption || "";
+        const caption = msgContent?.caption || "";
 
         let viewOnceContent;
-        if (isImage) {
+
+        if (type === 'imageMessage') {
             viewOnceContent = toViewOncePhoto(buffer, caption);
-        } else if (isVideo) {
+        } else if (type === 'videoMessage') {
             viewOnceContent = toViewOnceVideo(buffer, caption);
-        } else if (isAudio) {
+        } else if (type === 'audioMessage') {
             viewOnceContent = toViewOnceVoice(buffer);
+        } else {
+            return sock.sendMessage(from, {
+                text: "❌ Unsupported media"
+            }, { quoted: msg });
         }
 
         await sock.sendMessage(from, viewOnceContent, { quoted: msg });
 
     } catch (err) {
-        console.error("VV Command Error:", err);
-        await sock.sendMessage(from, { text: "Error." });
+        console.error("VV Error:", err);
+
+        await sock.sendMessage(from, {
+            text: "❌ Failed to process view-once"
+        }, { quoted: msg });
     }
 };
