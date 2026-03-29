@@ -1,8 +1,7 @@
-// © 2026 arun•°Cumar. All Rights Reserved.
 import { imageToSticker, videoToSticker, gifToSticker } from '../../lib/store/emix.js';
 import { downloadMedia } from '../../lib/store/download/download.js';
 
-export default async (sock, msg, args) => {
+export default async (sock, msg) => {
     const from = msg.key.remoteJid;
 
     try {
@@ -14,28 +13,25 @@ export default async (sock, msg, args) => {
             }, { quoted: msg });
         }
 
-        // Download media buffer
         const buffer = await downloadMedia(quotedMsg);
-
-        // Detect type
         const type = Object.keys(quotedMsg)[0];
 
         if (type === 'imageMessage') {
             const sticker = await imageToSticker(buffer, 'jpg');
-            await sock.sendMessage(from, { sticker: sticker }, { quoted: msg });
+            await sock.sendMessage(from, { sticker }, { quoted: msg });
         }
         else if (type === 'videoMessage') {
             if (quotedMsg.videoMessage?.gifPlayback) {
                 const sticker = await gifToSticker(buffer, 'mp4');
-                await sock.sendMessage(from, { sticker: sticker }, { quoted: msg });
+                await sock.sendMessage(from, { sticker }, { quoted: msg });
             } else {
                 const sticker = await videoToSticker(buffer, 'mp4');
-                await sock.sendMessage(from, { sticker: sticker }, { quoted: msg });
+                await sock.sendMessage(from, { sticker }, { quoted: msg });
             }
         }
         else {
             await sock.sendMessage(from, {
-                text: "Only image/video/gif supported!"
+                text: "Only image/video supported!"
             }, { quoted: msg });
         }
 
