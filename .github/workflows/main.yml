@@ -1,0 +1,30 @@
+name: nexa
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Start Bot
+        timeout-minutes: 350 
+        continue-on-error: true
+        run: npm start
+        env:
+          SESSION_ID: ${{ secrets.SESSION_ID }}
