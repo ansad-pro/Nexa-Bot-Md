@@ -1,12 +1,15 @@
-FROM node:20-bullseye
+FROM node:20-bullseye-slim
 
 WORKDIR /usr/src/app
 
-# Copy only package files
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+RUN npm install --production
 
-# Default command
+COPY . .
+
 CMD ["node", "main.js"]
