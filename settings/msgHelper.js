@@ -1,6 +1,6 @@
 // © 2026 arun•°Cumar. All Rights Reserved.
 import config from "../config.js";
-import { getPrefix } from '../../lib/nexa/settings/prefix.js';
+import { getPrefix } from '../lib/nexa/settings/prefix.js';
 
 export const parseMessage = (msg) => {
     const m = msg.message || {};
