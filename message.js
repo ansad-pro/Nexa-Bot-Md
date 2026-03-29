@@ -6,6 +6,7 @@ import { checkAdmin, checkOwner } from "./settings/check.js";
 import { getToggles } from "./lib/toggles.js";
 import { parseMessage } from "./settings/msgHelper.js";
 import { handleCommands } from "./settings/loader.js";
+import { downloadMedia } from '../../lib/store/download/download.js';
 import { handleMentionSticker } from "./settings/mention.js";
 import config from "./config.js";
 
