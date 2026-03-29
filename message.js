@@ -34,35 +34,19 @@ export default async (sock, chatUpdate) => {
         let media = null;
         let mediaType = null;
 
-    try {
-        const message = msg.message;
+try {
+    if (msg.message) {
+        const result = await downloadMedia(msg.message);
 
-        const mediaTypes = [
-           'imageMessage',
-           'videoMessage',
-           'audioMessage',
-           'stickerMessage',
-           'documentMessage',
-           'viewOnceMessage',
-           'viewOnceMessageV2'
-    ];
+        if (result) {
+            media = result.buffer;
+            mediaType = result.type;
 
-    const foundType = Object.keys(message || {}).find(type =>
-        mediaTypes.includes(type)
-    );
-
-    if (foundType) {
-        media = await downloadMedia(message);
-        mediaType = foundType;
-
-        if (media) {
             console.log(`📥 Media detected: ${mediaType}`);
         }
     }
-
 } catch (e) {
     console.log("Media download error:", e.message);
-    media = null;
 }
         
         // Parse Message    
