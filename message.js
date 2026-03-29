@@ -6,7 +6,6 @@ import { checkAdmin, checkOwner } from "./settings/check.js";
 import { getToggles } from "./lib/toggles.js";
 import { parseMessage } from "./settings/msgHelper.js";
 import { handleCommands } from "./settings/loader.js";
-import { downloadMedia } from '../../lib/store/download/download.js';
 import { handleMentionSticker } from "./settings/mention.js";
 import config from "./config.js";
 
@@ -29,25 +28,6 @@ export default async (sock, chatUpdate) => {
 
         //  Mention Sticker Logic
         await handleMentionSticker(sock, msg, from);
-
-        //Media Download 
-        let media = null;
-        let mediaType = null;
-
-try {
-    if (msg.message) {
-        const result = await downloadMedia(msg.message);
-
-        if (result) {
-            media = result.buffer;
-            mediaType = result.type;
-
-            console.log(`📥 Media detected: ${mediaType}`);
-        }
-    }
-} catch (e) {
-    console.log("Media download error:", e.message);
-}
         
         // Parse Message    
         const { isCmd, commandName, args } = parseMessage(msg);    
@@ -71,7 +51,7 @@ try {
                 await sock.sendPresenceUpdate('composing', from);
             }
             
-            await handleCommands(commandName, sock, msg, args, { isOwner, isAdmin, media });
+            await handleCommands(commandName, sock, msg, args, { isOwner, isAdmin, });
         }
 
     } catch (err) {    

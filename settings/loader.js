@@ -6,8 +6,6 @@ import pingHandler from '../plugins/system/ping.js';
 import uptimeHandler from '../plugins/system/uptime.js';
 import urlHandler from '../plugins/download/url.js';
 import stickerHandler from '../plugins/edit/sticker.js';
-import videoHandler from '../plugins/download/video.js';
-import playHandler from '../plugins/download/play.js';
 import tagallHandler from '../plugins/group/tagall.js';
 import mathHandler from '../plugins/general/math.js';
 import restartHandler from '../plugins/system/restart.js';
@@ -26,9 +24,6 @@ const commands = {
     link: urlHandler,
     sticker: stickerHandler,
     s: stickerHandler,
-    video: videoHandler,
-    play: playHandler,
-    song: playHandler,
     tagall: tagallHandler,
     math: mathHandler,
     calculate: mathHandler,

@@ -1,51 +1,46 @@
 // © 2026 arun•°Cumar
-import { downloadMedia } from '../../lib/store/download/download.js';
-import { toViewOncePhoto, toViewOnceVideo, toViewOnceVoice } from '../../lib/store/emix.js';
+import { downloadViewOnceMedia } from '../../lib/store/emix.js';
 
-export default async (sock, msg, args) => {
-    const from = msg.key.remoteJid;
+export default async (sock, msg) => {
+    const chat = msg.key.remoteJid;
 
     try {
-        const quoted =
-            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ||
-            msg.message?.imageMessage?.contextInfo?.quotedMessage ||
-            msg.message?.videoMessage?.contextInfo?.quotedMessage;
+        const media = await downloadViewOnceMedia(msg);
 
-        if (!quoted) {
-            return sock.sendMessage(from, {
-                text: "📌 Reply to a media message"
+        if (!media) {
+            return sock.sendMessage(chat, {
+                text: "❌ Please reply to a View Once media!"
             }, { quoted: msg });
         }
 
-        const { buffer, type, msgContent } = await downloadMedia(quoted);
+        const caption = `> *Nexa-Bot MD View-Once*`;
 
-        const caption = msgContent?.caption || "";
-
-        let viewOnceContent;
-
-        if (type === 'imageMessage') {
-            viewOnceContent = toViewOncePhoto(buffer, caption);
-        } else if (type === 'videoMessage') {
-            viewOnceContent = toViewOnceVideo(buffer, caption);
-        } else if (type === 'audioMessage') {
-            viewOnceContent = toViewOnceVoice(buffer);
-        } else {
-            return sock.sendMessage(from, {
-                text: "❌ Unsupported media"
+        if (media.type === 'image') {
+            await sock.sendMessage(chat, {
+                image: media.buffer,
+                caption
             }, { quoted: msg });
         }
 
-        await sock.sendMessage(from, {
-            viewOnceMessage: {
-                message: viewOnceContent
-            }
-        }, { quoted: msg });
+        if (media.type === 'video') {
+            await sock.sendMessage(chat, {
+                video: media.buffer,
+                caption
+            }, { quoted: msg });
+        }
 
-    } catch (err) {
-        console.error("VV Error:", err);
+        if (media.type === 'audio') {
+            await sock.sendMessage(chat, {
+                audio: media.buffer,
+                mimetype: 'audio/mp4',
+                ptt: false
+            }, { quoted: msg });
+        }
 
-        await sock.sendMessage(from, {
-            text: "❌ Failed to process view-once"
+    } catch (e) {
+        console.log("ViewOnce Error:", e.message);
+        await sock.sendMessage(chat, {
+            text: "❌ Failed to retrieve media."
         }, { quoted: msg });
     }
 };
