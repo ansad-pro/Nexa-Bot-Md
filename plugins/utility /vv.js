@@ -1,5 +1,5 @@
 // © 2026 arun•°Cumar
-import { downloadMedia } from '../../lib/store/download.js';
+import { downloadMedia } from '../../lib/store/download/download.js';
 import { toViewOncePhoto, toViewOnceVideo, toViewOnceVoice } from '../../lib/store/emix.js';
 
 export default async (sock, msg, args) => {
