@@ -28,6 +28,41 @@ export default async (sock, chatUpdate) => {
 
         //  Mention Sticker Logic
         await handleMentionSticker(sock, msg, from);
+
+        //Media Download 
+        let media = null;
+        let mediaType = null;
+
+    try {
+        const message = msg.message;
+
+        const mediaTypes = [
+           'imageMessage',
+           'videoMessage',
+           'audioMessage',
+           'stickerMessage',
+           'documentMessage',
+           'viewOnceMessage',
+           'viewOnceMessageV2'
+    ];
+
+    const foundType = Object.keys(message || {}).find(type =>
+        mediaTypes.includes(type)
+    );
+
+    if (foundType) {
+        media = await downloadMedia(message);
+        mediaType = foundType;
+
+        if (media) {
+            console.log(`📥 Media detected: ${mediaType}`);
+        }
+    }
+
+} catch (e) {
+    console.log("Media download error:", e.message);
+    media = null;
+}
         
         // Parse Message    
         const { isCmd, commandName, args } = parseMessage(msg);    
@@ -51,7 +86,7 @@ export default async (sock, chatUpdate) => {
                 await sock.sendPresenceUpdate('composing', from);
             }
             
-            await handleCommands(commandName, sock, msg, args, { isOwner, isAdmin });
+            await handleCommands(commandName, sock, msg, args, { isOwner, isAdmin, media });
         }
 
     } catch (err) {    
