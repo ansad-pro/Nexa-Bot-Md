@@ -1,4 +1,4 @@
-import { setAntilinkStatus } from '../lib/group.js';
+import { setAntilinkStatus } from '../../lib/group.js';
 
 export default {
     name: 'antilink',
