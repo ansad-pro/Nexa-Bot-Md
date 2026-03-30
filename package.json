@@ -2,10 +2,10 @@
   "name": "Nexa-Bot-MD",
   "version": "v2.0",
   "description": "Nexa Whatsapp  Bot by arun•°Cumar & Ansad",
-  "main": "main.js",
+  "main": "nexa.js",
   "type": "module",
   "scripts": {
-    "start": "node main.js"
+    "start": "node nexa.js"
     
   },
   "dependencies": {
