@@ -11,6 +11,8 @@ import mathHandler from '../plugins/general/math.js';
 import restartHandler from '../plugins/system/restart.js';
 import prefixHandler from '../plugins/system/prefix.js';
 import vvHandler from '../plugins/utility/vv.js';
+import addHandler from '../plugins/group/add.js';
+
 // map
 const commands = {
     menu: menuHandler,
@@ -32,7 +34,8 @@ const commands = {
     prefix: prefixHandler,
     setprefix: prefixHandler,
     vv: vvHandler,
-    viewOnce: vvHandler 
+    viewOnce: vvHandler, 
+    add: addHandler
 };
 
 // handler
