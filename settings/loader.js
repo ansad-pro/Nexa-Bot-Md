@@ -16,6 +16,7 @@ import muteHandler from '../plugins/group/mute.js';
 import kickHandler from '../plugins/group/kick.js';
 import demoteHandler from '../plugins/group/demote.js';
 import promoteHandler from '../plugins/group/promote.js';
+import welcomeHandler from '../plugins/group/welcome.js';
 
 // map
 const commands = {
@@ -43,7 +44,8 @@ const commands = {
     promote: promoteHandler,
     demote: demoteHandler,
     kick: kickHandler,
-    mute: muteHandler 
+    mute: muteHandler,
+    welcome: welcomeHandler 
 };
 
 // handler
