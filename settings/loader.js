@@ -11,6 +11,13 @@ import mathHandler from '../plugins/general/math.js';
 import restartHandler from '../plugins/system/restart.js';
 import prefixHandler from '../plugins/system/prefix.js';
 import vvHandler from '../plugins/utility/vv.js';
+import addHandler from '../plugins/group/add.js';
+import muteHandler from '../plugins/group/mute.js';
+import kickHandler from '../plugins/group/kick.js';
+import demoteHandler from '../plugins/group/demote.js';
+import promoteHandler from '../plugins/group/promote.js';
+import welcomeHandler from '../plugins/group/welcome.js';
+import antilinkHandler from '../plugins/group/antilink.js';
 // map
 const commands = {
     menu: menuHandler,
@@ -32,7 +39,14 @@ const commands = {
     prefix: prefixHandler,
     setprefix: prefixHandler,
     vv: vvHandler,
-    viewOnce: vvHandler 
+    viewOnce: vvHandler, 
+    add: addHandler,
+    promote: promoteHandler,
+    demote: demoteHandler,
+    kick: kickHandler,
+    mute: muteHandler,
+    welcome: welcomeHandler,
+    antilink: antilinkHandler 
 };
 
 // handler
