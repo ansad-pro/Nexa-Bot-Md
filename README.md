@@ -1,9 +1,39 @@
 # NEXA-BOT MD WhatsApp Bot 
 <p align="center">
-<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=45&duration=4000&pause=1000&color=00BFFF&center=true&vCenter=true&width=1000&height=200&lines=🔹+NEXA-BOT+MD+V2.0+🔹;💠+MODERN+|+SLEEK+|+POWERFUL;💎+CRAFTED+BY+arun•°Cumar;🚀+THE+NEXT+GEN+WHATSAPP+BOT;🌊+STAY+COOL+WITH+NEXA+BLUE" alt="Typing SVG" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=45&duration=4000&pause=1000&color=00BFFF&center=true&vCenter=true&width=1000&height=200&lines=🔹+NEXA-BOT+MD+V2.0+🔹;💠+MODERN+|+SLEEK+|+POWERFUL;💎+CRAFTED+BY+arun•°Cumar;🚀+THE+NEXT+MD+WHATSAPP+BOT;🌊+STAY+COOL+WITH+NEXA+BLUE" alt="Typing SVG" />
 </p>
 
 ---
+
+## 🔗 Get Session ID
+
+
+<p align="left">
+<a href="https://only-cathrine-menualive-c76dd2b7.koyeb.app/"><img src="https://img.shields.io/badge/Session_Server_1-black?style=for-the-badge&logo=blank" /></a>
+<p align="left">
+<a href="https://ordinary-blisse-roxe-filexor-a6e0c820.koyeb.app/"><img src="https://img.shields.io/badge/Session_Server_2-black?style=for-the-badge&logo=blank" /></a>
+</p>
+
+
+
+---
+
+## 🚀 One-Click Deployment
+
+Thazhe ulla yenthinkilum oru platform upayogichu bot deploy cheyyam:
+
+<p align="left">
+  <a href="https://app.koyeb.com/deploy?type=git&repository=github.com/arun-cumar/Nexa-Bot-Md&branch=main&name=nexa-bot-md"><img src="https://img.shields.io/badge/Deploy_to-Koyeb-darkblue?style=for-the-badge&logo=koyeb" /></a>
+  
+  <a href="https://render.com/deploy?repo=https://github.com/arun-cumar/Nexa-Bot-Md"><img src="https://img.shields.io/badge/Deploy_to-Render-rose?style=for-the-badge&logo=render&logoColor=white" /></a>
+  
+  <a href="https://railway.app/new/template?template=https://github.com/arun-cumar/Nexa-Bot-Md"><img src="https://img.shields.io/badge/Deploy_to-Railway-black?style=for-the-badge&logo=railway" /></a>
+  
+  <a href="https://www.heroku.com/deploy/?template=https://github.com/arun-cumar/Nexa-Bot-Md"><img src="https://img.shields.io/badge/Deploy_to-Heroku-purple?style=for-the-badge&logo=heroku&logoColor=white" /></a>
+</p>
+
+---
+
 
 ## 💻 Manual Installation (VPS / Panel / Terminal)
 
