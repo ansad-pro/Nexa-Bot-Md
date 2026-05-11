@@ -1,6 +1,6 @@
 # NEXA-BOT MD WhatsApp Bot 
 <p align="center">
-<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=45&duration=4000&pause=1000&color=00BFFF&center=true&vCenter=true&width=1000&height=200&lines=🔹+NEXA-BOT+MD+V2.0+🔹;💠+MODERN+|+SLEEK+|+POWERFUL;💎+CRAFTED+BY+arun•°Cumar;🚀+THE+NEXT+MD+WHATSAPP+BOT;🌊+STAY+COOL+WITH+NEXA+BLUE" alt="Typing SVG" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=45&duration=4000&pause=1000&color=00BFFF&center=true&vCenter=true&width=1000&height=200&lines=🔹+NEXA-BOT+MD+V2.0+🔹;💠+MODERN+|+SLEEK+|+POWERFUL;💎+CREATED+BY+arun•°Cumar+Ansad;🚀+THE+NEXT+MD+WHATSAPP+BOT;🌊+STAY+COOL+WITH+NEXA+BLUE" alt="Typing SVG" />
 </p>
 
 ---
@@ -20,7 +20,7 @@
 
 ## 🚀 One-Click Deployment
 
-Thazhe ulla yenthinkilum oru platform upayogichu bot deploy cheyyam:
+
 
 <p align="left">
   <a href="https://app.koyeb.com/deploy?type=git&repository=github.com/arun-cumar/Nexa-Bot-Md&branch=main&name=nexa-bot-md"><img src="https://img.shields.io/badge/Deploy_to-Koyeb-darkblue?style=for-the-badge&logo=koyeb" /></a>
@@ -77,5 +77,5 @@ If you like this project, please give it a [⭐️ Star On Repo](https://github.
 -----
 
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&size=50&duration=2000&pause=1000&color=FF0000&center=true&vCenter=true&width=900&height=100&lines=Copyright+©️+2026+arun•°Cumar;All+Rights+Reserved.;⊹₊˚‧︵‿₊୨ᰔ୧₊‿︵‧˚₊⊹;" alt="Typing SVG" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&size=50&duration=2000&pause=1000&color=FF0000&center=true&vCenter=true&width=900&height=100&lines=Copyright+©️+2026+arun•°Cumar+Ansad;All+Rights+Reserved.;⊹₊˚‧︵‿₊୨ᰔ୧₊‿︵‧˚₊⊹;" alt="Typing SVG" />
 </p>
