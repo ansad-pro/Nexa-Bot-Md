@@ -1,6 +1,6 @@
 {
   "name": "nexa-bot-md",
-  "version": "2.1.0",
+  "version": "v2.0",
   "description": "Advanced WhatsApp MD Bot powered by Baileys",
   "main": "nexa.js",
   "type": "module",
@@ -16,12 +16,8 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
-    "axios": "^1.7.9"
-  },
-  "devDependencies": {
-    "eslint": "^9.0.0",
-    "nodemon": "^3.1.0",
-    "prettier": "^3.2.0"
+    "express": "^5.1.0",
+    "pino": "^9.9.4"
   },
   "engines": {
     "node": ">=20.0.0"
